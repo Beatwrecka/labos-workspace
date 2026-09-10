@@ -242,6 +242,51 @@ service documents this rather than claiming a guarantee it cannot keep.
 
 ---
 
+## 2026-09-10 — Phase 1, step B: repository watcher
+
+**Status:** complete
+
+**Changed paths**
+
+- `packages/frontend/apps/electron/src/main/labos/repo-watcher.ts`
+- `labos/scripts/repo-watcher.test.mjs`
+
+**Commands and results**
+
+- `node --test labos/scripts/repo-watcher.test.mjs` → 12/12 pass, stable across
+  repeated runs.
+
+**Design decisions, each from a specific failure mode**
+
+- **Watch the directory, not the file.** Agents and editors write a temp file and
+  rename it over the target, which orphans a file-level watch. A directory watch
+  survives atomic replacement and also sees rename and delete. Asserted by the
+  "agent write via temp file plus rename" test.
+- **Suppress self-writes by content hash, not by timing.** The service reports the
+  hash it just wrote and the watcher ignores an event whose current hash matches.
+  A time-based guard is a race; this is not. Asserted by both the "self save is
+  not reported" and the "a genuine external change after a self-write is still
+  reported" tests, so suppression cannot swallow a real change.
+- **Debounce and coalesce.** A 10-write burst must produce a bounded number of
+  notifications, or the UI flickers and a save loop becomes possible.
+- **Treat events as advisory.** Events can be dropped or missed across sleep/wake,
+  so `reconcile()` is a required peer, tested by injecting a change the event
+  stream never sees.
+
+**Defects found and fixed**
+
+1. `[...this.#roots.keys()]` in `close()` — the linter flagged an unnecessary
+   spread, but the underlying requirement is real: `unwatchRoot` mutates the map
+   being iterated, so the ids must be snapshotted first. Kept the snapshot, made
+   the intent explicit.
+2. An unawaited promise in the debounce timer would have surfaced as an unhandled
+   rejection on a transient filesystem error. Now caught explicitly, with the
+   change left to reconciliation.
+
+**Next step:** the Repo document UI.
+
+---
+
 ## Environment hazard: packaging leaves a nested-node_modules typecheck
 
 **Found:** 2026-09-10, while re-verifying the Phase 0 isolation commit.
