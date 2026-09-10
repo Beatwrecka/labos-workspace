@@ -405,6 +405,65 @@ from the lockfile.
 
 ---
 
+## 2026-09-10 — Phase 2, step A: MeMCP adapter
+
+**Status:** complete
+
+**Changed paths**
+
+- `packages/frontend/apps/electron/src/main/labos/memcp-adapter.ts`
+- `labos/scripts/memcp-adapter.test.mjs`
+
+**Commands and results**
+
+- `node --test labos/scripts/memcp-adapter.test.mjs` → 27/27 pass
+- `node --test labos/scripts/*.test.mjs` → 147/147 pass
+- `yarn typecheck` → clean (0 errors)
+- `oxlint` → 0 errors
+
+**Contract, read from the local MeMCP checkout**
+
+- `GET /api/v1/health` → `{status, archivist, archivist_enabled, queue,
+  recovery_mode, projection_writes_enabled, tasks_version}`
+- `GET /api/v1/projects` → `{projects: [...]}` with `repo_path`, `repo_remote`,
+  `preview_url`, `cover_preview_id`, `next_action_override`, `visual_evidence_mode`
+- `GET /api/v1/projects/:slug/snapshot` → a rich deterministic document with
+  `schema_version: 2`, per-section `status` (`available`/`partial`/`unknown`),
+  `provenance` (`explicit`/`reported`/`verified_at_source`/`unknown`),
+  `omitted_count`, `evidence_gaps`, `coverage` and `truncation`
+
+**What the contract confirms from the briefing**
+
+MeMCP is explicit that task status is **reported**, not proven: every task
+carries `evidence_label` of `reported_status` / `reported_complete` /
+`reported_blocked`, and the `what_works` section note says "Task completion is
+reported status, not functional or browser proof; A1 has no evidence catalogue."
+LabOS must render that distinction rather than collapsing it to "done", and the
+adapter preserves `status`, `provenance` and `evidence_label` separately.
+
+**Defect found by the tests before it shipped**
+
+The 3xx rejection ran **before** the 304 check, so every legitimate
+`304 Not Modified` was misreported as a rejected redirect. That is precisely the
+trap the briefing warned about — the inspected generic client rejects all 3xx, so
+a conditional request path must handle 304 explicitly. 304 is now handled first,
+and a regression test asserts both that a 304 returns the cached snapshot **and**
+that the connection stays healthy rather than looking failed.
+
+**Decisions**
+
+- The adapter does not import MeMCP's packages. Coupling to another project's
+  internals would make both projects harder to change.
+- Loopback-only numeric HTTP URL validation, duplicated from MeMCP rather than
+  assumed, so a misconfiguration cannot point LabOS at a remote host.
+- Tests use synthetic fixtures shaped to the contract. No real project data,
+  private source or credentials are involved, as the QA checklist requires.
+
+**Next step:** build the home screen, evidence-aware sprint cards and project
+gallery on top of this adapter.
+
+---
+
 ## Environment hazard: packaging leaves a nested-node_modules typecheck
 
 **Found:** 2026-09-10, while re-verifying the Phase 0 isolation commit.
