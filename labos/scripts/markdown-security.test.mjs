@@ -64,8 +64,7 @@ function allText(document) {
     if (block.kind === 'table') {
       block.header.forEach(pushInline);
       block.rows.forEach(row => row.forEach(cell => cell.forEach(pushInline)));
-    }
-    if (block.kind === 'raw-html' || block.kind === 'unsupported') {
+    }    if (block.kind === 'raw-html' || block.kind === 'unsupported') {
       parts.push(block.value);
     }
   }
@@ -316,6 +315,7 @@ test('tables, tasks, quotes and rules render as structured blocks', () => {
     '| a | b |',
     '| - | - |',
     '| 1 | 2 |',
+    '| 3 | 4 |',
     '',
     '- [ ] todo',
     '- [x] done',
@@ -335,6 +335,39 @@ test('tables, tasks, quotes and rules render as structured blocks', () => {
   assert.equal(tasks.items.length, 2);
   assert.equal(tasks.items[0].checked, false);
   assert.equal(tasks.items[1].checked, true);
+});
+
+test('a table keeps its header and every body row, in order', () => {
+  // Regression guard: a duplicated index increment made the parser read the
+  // header from the wrong line and drop a body row, which produced a table that
+  // looked plausible but was factually wrong.
+  const source = [
+    '| name | value |',
+    '| ---- | ----- |',
+    '| one  | 1     |',
+    '| two  | 2     |',
+    '| three| 3     |',
+  ].join('\n');
+
+  const document = md.renderMarkdown(source);
+  const table = document.blocks.find(block => block.kind === 'table');
+  assert.ok(table, 'a table block is produced');
+
+  const cellText = cell => ('value' in cell ? cell.value : '');
+  assert.deepEqual(
+    table.header.map(cellText),
+    ['name', 'value'],
+    'the header comes from the first row, not the delimiter row'
+  );
+  assert.deepEqual(
+    table.rows.map(row => row.map(cellText)),
+    [
+      ['one', '1'],
+      ['two', '2'],
+      ['three', '3'],
+    ],
+    'every body row is present, in order'
+  );
 });
 
 test('UTF-8, emoji and unexpected syntax are preserved without loss', () => {

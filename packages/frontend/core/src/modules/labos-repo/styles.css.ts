@@ -215,7 +215,7 @@ export const codeBlock = style({
   backgroundColor: cssVar('backgroundCodeBlock'),
   border: `1px solid ${cssVar('borderColor')}`,
   overflowX: 'auto',
-  fontFamily: cssVar('fontFamilyCode'),
+  fontFamily: cssVar('fontCodeFamily'),
   fontSize: cssVar('fontSm'),
   lineHeight: 1.55,
   whiteSpace: 'pre',
@@ -232,7 +232,7 @@ export const codeLanguage = style({
 });
 
 export const inlineCode = style({
-  fontFamily: cssVar('fontFamilyCode'),
+  fontFamily: cssVar('fontCodeFamily'),
   fontSize: '0.9em',
   padding: '2px 5px',
   borderRadius: '4px',
@@ -298,7 +298,7 @@ export const taskItem = style({
 
 export const taskMarker = style({
   flexShrink: 0,
-  fontFamily: cssVar('fontFamilyCode'),
+  fontFamily: cssVar('fontCodeFamily'),
   color: cssVar('textSecondaryColor'),
 });
 
@@ -310,7 +310,7 @@ export const frontmatter = style({
   border: `1px dashed ${cssVar('borderColor')}`,
   backgroundColor: cssVar('backgroundSecondaryColor'),
   color: cssVar('textSecondaryColor'),
-  fontFamily: cssVar('fontFamilyCode'),
+  fontFamily: cssVar('fontCodeFamily'),
   fontSize: cssVar('fontXs'),
   whiteSpace: 'pre-wrap',
 });
@@ -422,7 +422,7 @@ export const conflictPre = style({
   padding: '10px',
   borderRadius: '6px',
   backgroundColor: cssVar('backgroundCodeBlock'),
-  fontFamily: cssVar('fontFamilyCode'),
+  fontFamily: cssVar('fontCodeFamily'),
   fontSize: cssVar('fontXs'),
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
@@ -446,7 +446,7 @@ export const editor = style({
   outline: 'none',
   resize: 'none',
   padding: '24px 32px 96px',
-  fontFamily: cssVar('fontFamilyCode'),
+  fontFamily: cssVar('fontCodeFamily'),
   fontSize: cssVar('fontSm'),
   lineHeight: 1.65,
   color: cssVar('textPrimaryColor'),
@@ -491,7 +491,7 @@ export const fileListButton = style({
   borderBottom: `1px solid ${cssVar('borderColor')}`,
   background: 'transparent',
   color: cssVar('textPrimaryColor'),
-  fontFamily: cssVar('fontFamilyCode'),
+  fontFamily: cssVar('fontCodeFamily'),
   fontSize: cssVar('fontXs'),
   cursor: 'pointer',
   ':hover': { backgroundColor: cssVar('hoverColor') },
@@ -511,4 +511,22 @@ export const notice = style({
   display: 'flex',
   gap: '8px',
   alignItems: 'flex-start',
+});
+
+/**
+ * Text for screen readers only.
+ *
+ * A task's checked state is communicated as words, not only as the `[x]` glyph,
+ * so it is not lost on a reader that does not announce punctuation.
+ */
+export const visuallyHidden = style({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
 });

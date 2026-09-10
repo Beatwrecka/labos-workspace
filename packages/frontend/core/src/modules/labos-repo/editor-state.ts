@@ -15,7 +15,7 @@
  * renderer over this.
  */
 
-import type { LabosWriteResult,LabosDocumentStatus } from '../../../../apps/electron/src/shared/labos-repo';
+import type { LabosDocumentStatus,LabosWriteResult } from '../../../../apps/electron/src/shared/labos-repo';
 
 export type {
   LabosDocumentStatus,

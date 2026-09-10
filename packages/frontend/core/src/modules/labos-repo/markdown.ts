@@ -52,8 +52,10 @@ export type LabosBlock =
   | { kind: 'quote'; content: LabosInline[] }
   | {
       kind: 'table';
-      header: LabosInline[][];
-      rows: LabosInline[][][];
+      /** One row of cells. Rendered inside `<thead>`. */
+      header: LabosInline[];
+      /** One entry per body row, each an array of cells. */
+      rows: LabosInline[][];
     }
   | { kind: 'rule' }
   | { kind: 'raw-html'; value: string }
@@ -458,12 +460,12 @@ export function renderMarkdown(source: string): LabosRenderedDocument {
           .split('|')
           .map(cell => cell.trim());
 
-      const header = splitRow(lines[index]).map(cell => ({
+      const headerRow: LabosInline[] = splitRow(lines[index]).map(cell => ({
         kind: 'text' as const,
         value: cell,
       }));
-      index += 2;
-      const rows: LabosInline[][][] = [];
+      index += 2; // skip the header row and the delimiter row
+      const rows: LabosInline[][] = [];
       while (index < lines.length && lines[index].includes('|')) {
         rows.push(
           splitRow(lines[index]).map(cell => ({
@@ -473,7 +475,7 @@ export function renderMarkdown(source: string): LabosRenderedDocument {
         );
         index += 1;
       }
-      blocks.push({ kind: 'table', header, rows });
+      blocks.push({ kind: 'table', header: headerRow, rows });
       continue;
     }
 
