@@ -17,7 +17,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
 
 const git = args =>
-  execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  execFileSync('git', args, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
 
 /** Paths a commit would publish, relative to the repo root. */
 export function candidatePaths(mode = 'staged') {
@@ -25,7 +29,28 @@ export function candidatePaths(mode = 'staged') {
     mode === 'tree'
       ? git(['ls-files'])
       : git(['diff', '--cached', '--name-only', '--diff-filter=ACMR']);
-  return raw.split('\n').map(line => line.trim()).filter(Boolean);
+  return raw
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Paths whose staged content differs from the pinned commit.
+ *
+ * A path can be inherited from upstream *and* modified by this fork — the
+ * isolation work edits upstream files such as `src/main/config.ts`. Classifying
+ * purely by history would skip exactly those, treating an edited file as
+ * "already public upstream" and missing anything the edit introduced.
+ */
+export function stagedModifications() {
+  const raw = git(['diff', '--cached', '--name-only', '--diff-filter=M']);
+  return new Set(
+    raw
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+  );
 }
 
 const PRIVATE_PATH_RULES = [
@@ -79,12 +104,6 @@ const PRIVATE_PATH_RULES = [
   },
 ];
 
-const ALLOWED_PATH_EXCEPTIONS = [
-  // Upstream ships `.env.example`-style templates and CI audio is not present;
-  // keep this list empty unless a real, reviewed exception appears, so the
-  // default posture stays "reject".
-];
-
 const CONTENT_RULES = [
   {
     id: 'absolute-user-home-path',
@@ -108,12 +127,12 @@ const CONTENT_RULES = [
   },
 ];
 
-const BINARY_EXTENSIONS = /\.(png|jpe?g|gif|webp|ico|icns|pdf|zip|gz|tgz|woff2?|ttf|otf|wasm|node|dylib|so)$/i;
+const BINARY_EXTENSIONS =
+  /\.(png|jpe?g|gif|webp|ico|icns|pdf|zip|gz|tgz|woff2?|ttf|otf|wasm|node|dylib|so)$/i;
 
 export function scanPaths(paths) {
   const findings = [];
   for (const path of paths) {
-    if (ALLOWED_PATH_EXCEPTIONS.includes(path)) continue;
     for (const rule of PRIVATE_PATH_RULES) {
       if (rule.allow?.test(path)) continue;
       if (rule.re.test(path)) {
@@ -151,7 +170,10 @@ export function scanContent(paths) {
 
 export function scan(mode = 'staged') {
   const paths = candidatePaths(mode);
-  return { paths: paths.length, findings: [...scanPaths(paths), ...scanContent(paths)] };
+  return {
+    paths: paths.length,
+    findings: [...scanPaths(paths), ...scanContent(paths)],
+  };
 }
 
 /**
@@ -220,13 +242,14 @@ export function classifyPaths(paths, pinCommit) {
   );
 
   // A path is inherited only if it is still tracked AND its newest commit is
-  // reachable from the pin. Files deleted since the pin, unmerged paths and
-  // anything git cannot place fall through to `authored` — fail towards
-  // inspection, never towards silence.
+  // reachable from the pin AND this commit does not modify it. Files deleted
+  // since the pin, unmerged paths and anything git cannot place fall through to
+  // `authored` — fail towards inspection, never towards silence.
+  const modified = stagedModifications();
   const inherited = [];
   const authored = [];
   for (const path of paths) {
-    if (tracked.has(path) && lastTouch.has(path)) {
+    if (tracked.has(path) && lastTouch.has(path) && !modified.has(path)) {
       inherited.push(path);
     } else {
       authored.push(path);
@@ -236,11 +259,14 @@ export function classifyPaths(paths, pinCommit) {
 }
 
 const isMain =
-  process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+  process.argv[1] &&
+  resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 
 if (isMain) {
   const mode = process.argv.includes('--tree') ? 'tree' : 'staged';
-  const pins = JSON.parse(readFileSync(resolve(repoRoot, 'labos', 'pins.json'), 'utf8'));
+  const pins = JSON.parse(
+    readFileSync(resolve(repoRoot, 'labos', 'pins.json'), 'utf8')
+  );
   const pinCommit = pins.upstream.pinnedCommit;
   const paths = candidatePaths(mode);
   const { authored, inherited } = classifyPaths(paths, pinCommit);

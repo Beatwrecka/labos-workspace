@@ -13,7 +13,7 @@ export type TelemetryEvent = {
     editorVersion?: string;
     environment?: string;
     distribution?: string;
-    channel?: 'stable' | 'beta' | 'internal' | 'canary';
+    channel?: 'stable' | 'beta' | 'internal' | 'canary' | 'labos';
     isDesktop?: boolean;
     isMobile?: boolean;
     locale?: string;
@@ -37,7 +37,7 @@ export type TelemetryAck =
 export interface TelemetryContext {
   isAuthed: boolean;
   isSelfHosted: boolean;
-  channel: 'stable' | 'beta' | 'internal' | 'canary';
+  channel: 'stable' | 'beta' | 'internal' | 'canary' | 'labos';
   userId?: string;
   userProperties?: Record<string, unknown>;
   officialEndpoint: string;

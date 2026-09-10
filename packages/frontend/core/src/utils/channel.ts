@@ -6,10 +6,12 @@ export const appSchemes = z.enum([
   'affine-beta',
   'affine-internal',
   'affine-dev',
+  'labos',
+  'labos-dev',
 ]);
 
 export type Scheme = z.infer<typeof appSchemes>;
-export type Channel = 'stable' | 'canary' | 'beta' | 'internal';
+export type Channel = 'stable' | 'canary' | 'beta' | 'internal' | 'labos';
 
 export const schemeToChannel = {
   affine: 'stable',
@@ -17,6 +19,8 @@ export const schemeToChannel = {
   'affine-beta': 'beta',
   'affine-internal': 'internal',
   'affine-dev': 'canary', // dev does not have a dedicated app. use canary as the placeholder.
+  labos: 'labos',
+  'labos-dev': 'labos',
 } as Record<Scheme, Channel>;
 
 export const channelToScheme = {
@@ -24,6 +28,7 @@ export const channelToScheme = {
   canary: BUILD_CONFIG.debug ? 'affine-dev' : 'affine-canary',
   beta: 'affine-beta',
   internal: 'affine-internal',
+  labos: BUILD_CONFIG.debug ? 'labos-dev' : 'labos',
 } as Record<Channel, Scheme>;
 
 export const appIconMap = {
@@ -31,6 +36,8 @@ export const appIconMap = {
   canary: '/imgs/app-icon-canary.ico',
   beta: '/imgs/app-icon-beta.ico',
   internal: '/imgs/app-icon-internal.ico',
+  // LabOS ships with the app icon; no hosted .ico exists for it.
+  labos: '/imgs/app-icon-stable.ico',
 } satisfies Record<Channel, string>;
 
 export const appNames = {
@@ -38,6 +45,7 @@ export const appNames = {
   canary: 'AFFiNE Canary',
   beta: 'AFFiNE Beta',
   internal: 'AFFiNE Internal',
+  labos: 'LabOS Workspace',
 } satisfies Record<Channel, string>;
 
 export const appSchemaUrl = z.custom<string>(

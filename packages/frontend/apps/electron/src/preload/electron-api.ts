@@ -25,16 +25,34 @@ type Schema =
   | 'affine-canary'
   | 'affine-beta'
   | 'affine-internal'
-  | 'affine-dev';
+  | 'affine-dev'
+  | 'labos'
+  | 'labos-dev';
 
 // todo: remove duplicated codes
-const ReleaseTypeSchema = z.enum(['stable', 'beta', 'canary', 'internal']);
+const ReleaseTypeSchema = z.enum([
+  'stable',
+  'beta',
+  'canary',
+  'internal',
+  'labos',
+]);
 const envBuildType = (process.env.BUILD_TYPE || 'canary').trim().toLowerCase();
 const buildType = ReleaseTypeSchema.parse(envBuildType);
 const isDev = process.env.NODE_ENV === 'development';
-let scheme =
-  buildType === 'stable' ? 'affine' : (`affine-${envBuildType}` as Schema);
-scheme = isDev ? 'affine-dev' : scheme;
+// LabOS Workspace registers `labos://` so it cannot be confused with, or
+// intercept links meant for, a stock AFFiNE install. Must stay in step with
+// src/main/config.ts.
+let scheme = (
+  buildType === 'labos'
+    ? 'labos'
+    : buildType === 'stable'
+      ? 'affine'
+      : `affine-${envBuildType}`
+) as Schema;
+scheme = isDev
+  ? (`${buildType === 'labos' ? 'labos' : 'affine'}-dev` as Schema)
+  : scheme;
 
 export const appInfo = {
   electron: true,

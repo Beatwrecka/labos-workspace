@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { App } from 'electron';
 
-import { buildType, isDev } from './config';
+import { buildType, isDev, protocolScheme } from './config';
 import { logger } from './logger';
 import { uiSubjects } from './ui';
 import {
@@ -12,9 +12,14 @@ import {
   showMainWindow,
 } from './windows-manager';
 
-let protocol = buildType === 'stable' ? 'affine' : `affine-${buildType}`;
+// LabOS Workspace registers `labos://` so it cannot intercept links meant for a
+// stock AFFiNE install, and stock AFFiNE cannot intercept LabOS links.
+let protocol = protocolScheme;
+if (!isDev && protocol === 'affine') {
+  protocol = buildType === 'stable' ? 'affine' : `affine-${buildType}`;
+}
 if (isDev) {
-  protocol = 'affine-dev';
+  protocol = `${protocolScheme}-dev`;
 }
 
 const authMethods = new Set(['magic-link', 'oauth', 'open-app-signin']);

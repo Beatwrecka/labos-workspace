@@ -5,7 +5,12 @@ import { IPCMode } from '@sentry/electron/main';
 import { app, protocol } from 'electron';
 
 import { createApplicationMenu } from './application-menu/create';
-import { buildType, isDev, overrideSession } from './config';
+import {
+  appDataFolderName,
+  isDev,
+  overrideSession,
+  sessionDataFolderName,
+} from './config';
 import { persistentConfig } from './config-storage/persist';
 import { setupDeepLink } from './deep-link';
 import { registerEvents } from './events';
@@ -57,12 +62,29 @@ const enabledBlinkFeatures = ['CSSTextAutoSpace', 'WebCodecs'].join(',');
 app.commandLine.appendSwitch('enable-blink-features', enabledBlinkFeatures);
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
 
-// use the same data for internal & beta for testing
-if (overrideSession) {
-  const appName = buildType === 'stable' ? 'AFFiNE' : `AFFiNE-${buildType}`;
-  const userDataPath = path.join(app.getPath('appData'), appName);
+// The application name must be set before anything resolves a path from it.
+// electron-log, Chromium's log directory and several Electron APIs derive their
+// location from app.getName() at import time, so redirecting only userData below
+// would still leave LabOS writing into the stock AFFiNE log directory.
+if (appDataFolderName !== 'AFFiNE') {
+  app.setName(appDataFolderName);
+}
+
+// LabOS Workspace must never open a stock AFFiNE profile as its live database,
+// so it always redirects userData/sessionData to its own application-data
+// folder. A stock AFFiNE build keeps the upstream behaviour of sharing data
+// between internal & beta for testing.
+if (overrideSession || appDataFolderName !== 'AFFiNE') {
+  const userDataPath = path.join(app.getPath('appData'), appDataFolderName);
   app.setPath('userData', userDataPath);
-  app.setPath('sessionData', userDataPath);
+  app.setPath(
+    'sessionData',
+    path.join(app.getPath('appData'), sessionDataFolderName)
+  );
+  app.setPath(
+    'logs',
+    path.join(app.getPath('appData'), appDataFolderName, 'logs')
+  );
 }
 
 // oxlint-disable-next-line typescript/no-var-requires

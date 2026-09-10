@@ -194,7 +194,8 @@ export type TelemetryChannel =
   | 'beta'
   | 'internal'
   | 'canary'
-  | 'local';
+  | 'local'
+  | 'labos';
 
 const OFFICIAL_TELEMETRY_ENDPOINTS: Record<TelemetryChannel, string> = {
   stable: 'https://app.affine.pro',
@@ -202,6 +203,9 @@ const OFFICIAL_TELEMETRY_ENDPOINTS: Record<TelemetryChannel, string> = {
   internal: 'https://insider.affine.pro',
   canary: 'https://affine.fail',
   local: 'http://localhost:8080',
+  // LabOS Workspace is local-first with no dedicated telemetry collector. It
+  // falls back to the stable upstream endpoint rather than inventing one.
+  labos: 'https://app.affine.pro',
 };
 
 export function getOfficialTelemetryEndpoint(
@@ -211,8 +215,13 @@ export function getOfficialTelemetryEndpoint(
     return BUILD_CONFIG.isNative
       ? OFFICIAL_TELEMETRY_ENDPOINTS.local
       : location.origin;
-  } else if (['beta', 'internal', 'canary', 'stable'].includes(channel)) {
-    return OFFICIAL_TELEMETRY_ENDPOINTS[channel];
+  } else if (
+    ['labos', 'beta', 'internal', 'canary', 'stable'].includes(channel)
+  ) {
+    return (
+      OFFICIAL_TELEMETRY_ENDPOINTS[channel] ??
+      OFFICIAL_TELEMETRY_ENDPOINTS.stable
+    );
   }
 
   return OFFICIAL_TELEMETRY_ENDPOINTS.stable;

@@ -23,7 +23,7 @@ declare interface BUILD_CONFIG_TYPE {
 
   appVersion: string;
   editorVersion: string;
-  appBuildType: 'stable' | 'beta' | 'internal' | 'canary';
+  appBuildType: 'stable' | 'beta' | 'internal' | 'canary' | 'labos';
 
   githubUrl: string;
   changelogUrl: string;

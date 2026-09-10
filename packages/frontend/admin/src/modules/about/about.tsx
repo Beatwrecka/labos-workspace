@@ -9,13 +9,14 @@ import {
   UploadCloudIcon,
 } from 'lucide-react';
 
-type Channel = 'stable' | 'canary' | 'beta' | 'internal';
+type Channel = 'stable' | 'canary' | 'beta' | 'internal' | 'labos';
 
 const appNames = {
   stable: 'AFFiNE',
   canary: 'AFFiNE Canary',
   beta: 'AFFiNE Beta',
   internal: 'AFFiNE Internal',
+  labos: 'LabOS Workspace',
 } satisfies Record<Channel, string>;
 const appName = appNames[BUILD_CONFIG.appBuildType];
 

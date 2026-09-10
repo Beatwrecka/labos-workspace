@@ -53,7 +53,7 @@ function createSentryPlugin() {
   }
 }
 
-const availableChannels = ['canary', 'beta', 'stable', 'internal'];
+const availableChannels = ['canary', 'beta', 'stable', 'internal', 'labos'];
 function getBuildConfigFromEnv(pkg: Package) {
   const channel = process.env.BUILD_TYPE ?? 'canary';
   const dev = process.env.NODE_ENV === 'development';

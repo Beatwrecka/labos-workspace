@@ -55,6 +55,10 @@ const apiBaseByBuildType: Record<typeof buildType, string> = {
   beta: 'https://insider.affine.pro',
   internal: 'https://insider.affine.pro',
   canary: 'https://affine.fail',
+  // LabOS works locally and has no AFFiNE Cloud workspace of its own. It keeps
+  // the stable upstream API as the fallback so an explicit hosted sign-in is
+  // still possible, rather than inventing a LabOS endpoint that does not exist.
+  labos: 'https://app.affine.pro',
 };
 
 function resolveApiBaseUrl() {

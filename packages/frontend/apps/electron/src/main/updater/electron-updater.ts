@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { autoUpdater as defaultAutoUpdater } from 'electron-updater';
 
-import { buildType } from '../config';
+import { buildType, upstreamUpdatesEnabled } from '../config';
 import { logger } from '../logger';
 import { AFFiNEUpdateProvider } from './affine-update-provider';
 import { updaterSubjects } from './event';
@@ -10,8 +10,10 @@ import { WindowsUpdater } from './windows-updater';
 const mode = process.env.NODE_ENV;
 const isDev = mode === 'development';
 
-// skip auto update in dev mode & internal
-const disabled = buildType === 'internal' || isDev;
+// Skip auto update in dev mode, internal and the LabOS build. LabOS has no
+// update channel of its own yet, and inheriting upstream's would let an official
+// AFFiNE release replace the LabOS app.
+const disabled = buildType === 'internal' || isDev || !upstreamUpdatesEnabled;
 
 export const autoUpdater =
   process.platform === 'win32' ? new WindowsUpdater() : defaultAutoUpdater;

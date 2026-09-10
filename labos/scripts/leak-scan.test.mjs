@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { classifyPaths, scanPaths } from './leak-scan.mjs';
+import { classifyPaths, scanPaths, stagedModifications } from './leak-scan.mjs';
 
 const ruleIds = paths => scanPaths(paths).map(f => f.rule);
 
@@ -20,7 +20,9 @@ test('rejects the private briefing pack and its named documents', () => {
     'private-briefing-file',
   ]);
   assert.ok(ruleIds(['START_HERE.md']).includes('private-briefing-file'));
-  assert.ok(ruleIds(['docs/QA_CHECKLIST.md']).includes('private-briefing-file'));
+  assert.ok(
+    ruleIds(['docs/QA_CHECKLIST.md']).includes('private-briefing-file')
+  );
   assert.ok(ruleIds(['docs/REFERENCES.md']).includes('private-briefing-file'));
 });
 
@@ -34,7 +36,11 @@ test('rejects MeMCP internals and generated projections', () => {
 test('rejects databases, workspace stores and recordings', () => {
   assert.ok(ruleIds(['memory.sqlite']).includes('sqlite-database'));
   assert.ok(ruleIds(['x/storage.db-wal']).includes('sqlite-database'));
-  assert.ok(ruleIds(['workspaces/affine-cloud/a/storage.db']).includes('native-workspace-store'));
+  assert.ok(
+    ruleIds(['workspaces/affine-cloud/a/storage.db']).includes(
+      'native-workspace-store'
+    )
+  );
   assert.ok(ruleIds(['captures/note.wav']).includes('audio-capture'));
 });
 
@@ -53,6 +59,29 @@ test('allows ordinary upstream-style source paths', () => {
   assert.deepEqual(ruleIds(['packages/backend/server/README.md']), []);
   // `env.example` is a template, not a credential file.
   assert.deepEqual(ruleIds(['packages/backend/server/.env.example']), []);
+});
+
+test('an upstream path MODIFIED by this fork is audited, not skipped', () => {
+  // Regression guard: classification was history-only, so an upstream file that
+  // this fork edits (e.g. src/main/config.ts during isolation work) was treated
+  // as "already public upstream" and skipped — hiding anything the edit added.
+  const pin = JSON.parse(
+    readFileSync(new URL('../pins.json', import.meta.url), 'utf8')
+  ).upstream.pinnedCommit;
+
+  // A real upstream file that this fork edits.
+  const edited = 'packages/frontend/apps/electron/src/main/config.ts';
+  const modified = stagedModifications();
+  assert.ok(
+    modified.has(edited),
+    `${edited} must be reported as a staged modification`
+  );
+
+  const { authored } = classifyPaths([edited], pin);
+  assert.ok(
+    authored.includes(edited),
+    'a modified upstream path must be audited rather than trusted from history'
+  );
 });
 
 test('a brand-new path is audited, not silently skipped', () => {
@@ -76,11 +105,15 @@ test('a brand-new path is audited, not silently skipped', () => {
     'a path with no upstream history must be classified as authored'
   );
   assert.ok(
-    inherited.includes('packages/frontend/core/src/__tests__/ai/effects.spec.ts'),
+    inherited.includes(
+      'packages/frontend/core/src/__tests__/ai/effects.spec.ts'
+    ),
     'a path published by upstream before the pin must be classified as inherited'
   );
   assert.ok(
-    scanPaths(authored).some(f => f.path === 'labos-workspace-brief/BUILD_PLAN.md'),
+    scanPaths(authored).some(
+      f => f.path === 'labos-workspace-brief/BUILD_PLAN.md'
+    ),
     'the authored path must then be rejected by the briefing rules'
   );
   assert.deepEqual(

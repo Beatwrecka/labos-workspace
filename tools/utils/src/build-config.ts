@@ -3,7 +3,7 @@ import type { Package } from '@affine-tools/utils/workspace';
 import { PackageToDistribution } from './distribution';
 
 export interface BuildFlags {
-  channel: 'stable' | 'beta' | 'internal' | 'canary';
+  channel: 'stable' | 'beta' | 'internal' | 'canary' | 'labos';
   mode: 'development' | 'production';
 }
 
@@ -74,6 +74,18 @@ export function getBuildConfig(
         ...this.stable,
         appBuildType: 'canary' as const,
         changelogUrl: 'https://github.com/toeverything/AFFiNE/releases',
+      };
+    },
+    // LabOS Workspace is built from this fork. It inherits the stable preset
+    // deliberately: the point of LabOS is to keep AFFiNE's editor behaviour, not
+    // to opt into canary's aggressive feature flags. Product identity, storage
+    // isolation and update behaviour are set by the electron app, not here.
+    get labos() {
+      return {
+        ...this.stable,
+        appBuildType: 'labos' as const,
+        githubUrl: 'https://github.com/Beatwrecka/labos-workspace',
+        changelogUrl: 'https://github.com/Beatwrecka/labos-workspace/releases',
       };
     },
   };

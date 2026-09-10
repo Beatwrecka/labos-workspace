@@ -7,6 +7,9 @@ const API_BASE_BY_BUILD_TYPE: Record<typeof buildType, string> = {
   beta: 'https://insider.affine.pro',
   internal: 'https://insider.affine.pro',
   canary: 'https://affine.fail',
+  // See protocol.ts: LabOS is local-first and keeps the stable upstream API as
+  // its fallback rather than inventing a LabOS endpoint.
+  labos: 'https://app.affine.pro',
 };
 
 function resolveCurrentHostnameForRedirectAllowlist() {

@@ -18,6 +18,7 @@ import {
   icoPath,
   platform,
   productName,
+  protocolScheme,
 } from './scripts/make-env.js';
 
 const fromBuildIdentifier = utils.fromBuildIdentifier;
@@ -328,10 +329,25 @@ export default {
     name: productName,
     appBundleId: fromBuildIdentifier(appIdMap),
     icon: icnsPath,
-    osxSign: {
-      identity: 'Developer ID Application: TOEVERYTHING PTE. LTD.',
-      'hardened-runtime': true,
-    },
+    // Signing identity is configurable because a local LabOS build must never
+    // sign as TOEVERYTHING PTE. LTD. — that identity is not available here, and
+    // an unsigned/adhoc bundle combined with the embedded asar-integrity fuse
+    // produces SIGKILL (Code Signature Invalid) at launch.
+    //
+    //   LABOS_SIGN_IDENTITY unset  -> ad-hoc signing, which is valid locally
+    //   LABOS_SIGN_IDENTITY="..."  -> sign with that identity
+    //   SKIP_OSX_SIGN=1            -> skip signing entirely
+    osxSign:
+      process.env.SKIP_OSX_SIGN === '1'
+        ? undefined
+        : {
+            identity:
+              process.env.LABOS_SIGN_IDENTITY ??
+              (buildType === 'labos'
+                ? '-'
+                : 'Developer ID Application: TOEVERYTHING PTE. LTD.'),
+            'hardened-runtime': true,
+          },
     electronZipDir: process.env.ELECTRON_FORGE_ELECTRON_ZIP_DIR,
     osxNotarize: process.env.APPLE_ID
       ? {
@@ -349,7 +365,7 @@ export default {
     protocols: [
       {
         name: productName,
-        schemes: [productName.toLowerCase()],
+        schemes: [protocolScheme],
       },
     ],
     executableName: productName,
