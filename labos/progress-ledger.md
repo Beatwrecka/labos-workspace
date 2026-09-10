@@ -354,6 +354,57 @@ be unsafe (conflict unresolved, or the on-disk hash not yet confirmed).
 
 ---
 
+## 2026-09-10 — Phase 1, step F: route wired and verified in the running app
+
+**Status:** complete
+
+**Changed paths**
+
+- `packages/frontend/core/src/desktop/router.tsx`
+- `packages/frontend/core/src/desktop/pages/labos-repo/index.tsx`
+
+**Commands and results**
+
+- `yarn affine @affine/electron-renderer build` → compiled for the `labos`
+  channel; `labos/repo` and the LabOS components present in the emitted bundle
+- `bash labos/scripts/package-labos.sh` → app packaged, `codesign --verify --deep
+  --strict` passes
+- Launch: 7 processes, log shows `main window is ready to show` with no errors
+- `node --test labos/scripts/*.test.mjs` → 120/120 pass
+- In the running app, the exposed meta lists all 10 `labosRepo` handlers
+  (`pickAndRegisterRoot` … `clearPendingChanges`) and the `labosRepo:onFileChanged`
+  event channel
+
+**Decisions**
+
+- The route is `/labos/repo`, top-level rather than under `/workspace`. A
+  repository file is not part of any AFFiNE workspace — it belongs to its own
+  checkout — and nesting it would imply a relationship that does not exist.
+- The page is the only place the renderer touches the LabOS API, so every
+  component beneath it stays testable without a running main process.
+
+**Environment hazard hit: disk exhaustion**
+
+Packaging failed with `ENOSPC`. The cause is structural: the packaging phase's
+`nmHoistingLimits=workspaces` install duplicates dependencies into ~120 nested
+`node_modules` directories inside this checkout, which reached ~8.6 GB on a disk
+that had ~22 GB free at the start.
+
+Recovered by removing only regenerable artifacts inside this checkout — the
+nested `node_modules`, the Rust `target/`, the renderer/web-static output and the
+Yarn global cache — going from 107 MB to 8.2 GB free with no source or user data
+touched.
+
+Reported but NOT changed, for a future decision: `~/Library/Caches` is 17 GB
+(Spotify 3.5 GB, ms-playwright 2.5 GB, Google 1.5 GB, Codex 1.1 GB), `~/Downloads`
+is 3.9 GB, and `~/.codex` is 43 GB. Clearing any of those is the owner's call.
+
+**Action for future sessions:** expect to need ~8 GB free before packaging, and
+clean the nested `node_modules` and `target/` afterwards. Both are regenerable
+from the lockfile.
+
+---
+
 ## Environment hazard: packaging leaves a nested-node_modules typecheck
 
 **Found:** 2026-09-10, while re-verifying the Phase 0 isolation commit.
