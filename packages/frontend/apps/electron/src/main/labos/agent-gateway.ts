@@ -27,7 +27,16 @@
  *    user's own authenticated CLI and reports failure if it is not signed in.
  */
 
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { type ChildProcessByStdio,spawn } from 'node:child_process';
+import type { Readable } from 'node:stream';
+
+/**
+ * The child's shape given `stdio: ['ignore', 'pipe', 'pipe']`.
+ *
+ * stdin is deliberately null: the prompt is passed as an argument, and a CLI
+ * that decides to read stdin would otherwise block until the timeout.
+ */
+type AgentChild = ChildProcessByStdio<null, Readable, Readable>;
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -174,7 +183,7 @@ export function parseCodexEvent(line: string):
 export class LabosAgentGateway {
   readonly #binaryPath: string;
   readonly #jobs = new Map<string, LabosAgentJob>();
-  readonly #running = new Map<string, ChildProcessWithoutNullStreams>();
+  readonly #running = new Map<string, AgentChild>();
   readonly #order: string[] = [];
 
   constructor(binaryPath: string) {
@@ -245,7 +254,7 @@ export class LabosAgentGateway {
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
     return new Promise<LabosAgentJob>(resolve => {
-      let child: ChildProcessWithoutNullStreams;
+      let child: AgentChild;
       try {
         child = spawn(this.#binaryPath, args, {
           cwd: options.cwd,
@@ -260,7 +269,7 @@ export class LabosAgentGateway {
             // Ask Codex not to use colour codes in a machine-read stream.
             NO_COLOR: '1',
           },
-        }) as ChildProcessWithoutNullStreams;
+        }) as AgentChild;
       } catch (error) {
         job.state = 'failed';
         job.error =

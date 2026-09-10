@@ -8,6 +8,7 @@ import { clipboardHandlers } from './clipboard';
 import { configStorageHandlers } from './config-storage';
 import { findInPageHandlers } from './find-in-page';
 import { importHandlers } from './import';
+import { labosAgentHandlers } from './labos/agent-handlers';
 import { labosRepoHandlers } from './labos/handlers';
 import { labosMemcpHandlers } from './labos/memcp-handlers';
 import { getLogFilePath, logger, revealLogFile } from './logger';
@@ -52,6 +53,7 @@ export const allHandlers = {
   auth: authHandlers,
   labosRepo: labosRepoHandlers,
   labosMemcp: labosMemcpHandlers,
+  labosAgent: labosAgentHandlers,
 };
 
 export const registerHandlers = () => {

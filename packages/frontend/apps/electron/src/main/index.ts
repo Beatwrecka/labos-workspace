@@ -17,6 +17,7 @@ import { setupDeepLink } from './deep-link';
 import { registerEvents } from './events';
 import { registerHandlers } from './handlers';
 import { closeLabosRepoWatcher, restoreLabosRoots } from './labos/handlers';
+import { closeLabosAgents } from './labos/agent-handlers';
 import { logger } from './logger';
 import { registerProtocol } from './protocol';
 import { setupRecordingFeature } from './recording/feature';
@@ -160,6 +161,8 @@ app
 app.on('will-quit', () => {
   try {
     closeLabosRepoWatcher();
+    // A running agent job is a child process; it must not outlive the app.
+    closeLabosAgents();
   } catch {
     // Shutting down: a failure here must not block quit.
   }
