@@ -63,6 +63,48 @@ after(async () => {
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Wait until the watcher is actually receiving events for a path.
+ *
+ * `watch()` returning does not mean the OS event stream is live yet. Writing
+ * before it is attached loses the event entirely, which is a real property of
+ * FSEvents rather than a bug in the watcher — so the test waits for evidence of
+ * delivery instead of assuming a fixed delay is long enough.
+ */
+async function waitForWatcher(watcher, service, relativePath, marker) {
+  const deadline = Date.now() + 3000;
+  const file = path.join(repoDir, relativePath);
+  let attempt = 0;
+
+  while (Date.now() < deadline) {
+    attempt += 1;
+    await fs.writeFile(file, `${marker} ${attempt}`);
+    const before = Date.now();
+    // Poll reconcile() rather than events, so readiness is detected by observed
+    // change rather than by hoping a notification arrived.
+    while (Date.now() - before < 120) {
+      const change = await watcher.reconcile('repo', relativePath);
+      if (change) return;
+      await delay(10);
+    }
+  }
+  throw new Error(
+    `the watcher never became ready for ${relativePath}; ` +
+      'this is an environment problem, not a product assertion'
+  );
+}
+
+/** Wait until a change for this path has been observed, or fail after a bound. */
+async function waitForChanges(changes, relativePath, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (changes.some(change => change.relativePath === relativePath)) return;
+    await delay(20);
+  }
+  // Fall through: the assertion that follows reports the real failure, which is
+  // clearer than throwing from a helper.
+}
+
 /** A service plus watcher over the same directory, wired like production. */
 async function harness({ debounceMs = 20 } = {}) {
   const service = serviceModule.createLabosRepoFileService();
@@ -93,11 +135,16 @@ test('an external edit to a clean file is reported once', async () => {
   const file = path.join(repoDir, 'docs', 'external.md');
   await fs.writeFile(file, 'v1');
   await service.readDocument('repo', 'docs/external.md');
-  await delay(60);
+
+  // On macOS the FSEvents stream can take a moment to attach after watch() is
+  // called. Writing before it is live loses the event, which made this test
+  // fail roughly one run in three. Warm the watcher with a throwaway write and
+  // wait until it is actually receiving, then clear and test the real thing.
+  await waitForWatcher(watcher, service, 'docs/external.md', 'warmup');
   changes.length = 0;
 
   await fs.writeFile(file, 'v2 from an external editor');
-  await delay(200);
+  await waitForChanges(changes, 'docs/external.md');
 
   const relevant = changes.filter(c => c.relativePath === 'docs/external.md');
   assert.ok(relevant.length >= 1, 'the external edit must be reported');

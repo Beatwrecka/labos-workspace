@@ -74,6 +74,10 @@ shortlist. **13/13 checks passed against a real MeMCP service.**
 
 **218 tests pass. Typecheck clean. Lint clean. All three routes in the built bundle.**
 
+The full suite was run five times consecutively with zero failures. One earlier
+intermittent failure — an FSEvents attach race in the watcher test — was found,
+diagnosed and fixed rather than left as a known flake (see §6).
+
 ### The five evidence dimensions
 
 The briefing is emphatic that a worker saying "done" is not a verified merge or
@@ -167,6 +171,17 @@ against that.
 4. **MeMCP's `/projects` is newer than what is running.** This is why the
    adapter was fixture-tested for a while before real verification was possible.
    Worth knowing that a running service can be older than the checkout.
+
+5. **A test flake was found and fixed, not hidden.** The full suite failed
+   roughly one run in three on `an external edit to a clean file is reported
+   once`. The cause was real: on macOS the FSEvents stream can take a moment to
+   attach after `watch()` returns, so a write landing before it is live is lost
+   entirely. The test assumed a fixed 60 ms delay was enough. It now waits for
+   *evidence* that the watcher is receiving before testing, and the suite passes
+   five consecutive full runs. This is a genuine property of FSEvents worth
+   knowing about: **the watcher cannot be relied on for events in the first
+   moments after watching a directory**, which is why `reconcile()` exists and
+   runs on focus, wake and startup.
 
 ---
 
