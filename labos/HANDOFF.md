@@ -1,6 +1,6 @@
 # LabOS Workspace — handoff
 
-**Written:** 2026-09-10 · **Branch:** `main` · **Last commit:** `26deccc640`
+**Written:** 2026-09-10 · **Branch:** `main` · **Last commit:** `f95d7d5ea9`
 **Working tree:** clean · **264 tests passing** · **Typecheck + lint clean**
 
 Read this first, then `labos/progress-ledger.md`, which is the detailed
@@ -8,25 +8,25 @@ per-step record of every change, command, result, decision and defect.
 
 ## ⚠️ Start here
 
-**Phases 0, 1, 2 and 3 are built.** Everything below is committed, tested and in
-the shipped bundle. The blocker is that **nobody has looked at it** — this agent
-context cannot drive a GUI, so every UI claim rests on the bundle, the handlers
-and the logs, not on seeing the screen.
+**Two things, in this order:**
 
-**So the highest-value next action is yours, not the agent's:** launch the app
-and open `/labos/home`, `/labos/repo` and `/labos/projects`, then report what
-actually looks wrong.
+**1. Look at the UI (yours to do).** Phases 0–3 are built, tested and in the
+shipped bundle, but **nobody has ever looked at them** — this agent context
+cannot drive a GUI. Every UI claim rests on the bundle, the handlers and the
+logs, not on seeing the screen. This is the highest-value remaining action and
+only you can do it.
 
 ```sh
 cd ~/Programming/jonnys-lab/projects/desktop-apps/labos-workspace
 . labos/scripts/labos-env.sh
 bash labos/scripts/launch-labos.sh --doctor   # readiness, no launch
 bash labos/scripts/launch-labos.sh            # launch
+
+# then open: /labos/home   /labos/repo   /labos/projects
 ```
 
-If the agent session is resumed instead, the next build step is **Phase 4
-(voice)**, or fixing whatever the UI review turns up — the latter first, because
-it is real feedback and the former is not yet.
+**2. Finish Phase 4 (voice).** The hard part is done and proven — see §10.
+What remains is wiring: an IPC namespace, the recorder UI, and the inbox.
 
 **Do not add an apply path for agent proposals.** The gateway is read-only and
 the panel has no apply button on purpose.
@@ -296,3 +296,45 @@ arguments.
 dead MCP endpoint on 17493, a models-cache warning). It does not affect the job;
 the gateway reads stdout only. Filter with
 `grep -vE "^2026-|rmcp::|codex_models|codex_core"`.
+
+---
+
+## 10. Voice — local transcription (Phase 4, foundation done)
+
+**The capability is proven, not assumed.** whisper.cpp 1.9.2 is installed via
+Homebrew, and the JFK test clip transcribes **verbatim** with the `base.en` model:
+
+> *"And so my fellow Americans, ask not what your country can do for you, ask
+> what you can do for your country."*
+
+**What exists:** `main/labos/transcription.ts` — runs `whisper-cli` in a child
+process. Local-only by construction: no network call, no upload, model and audio
+are both local files. The CLI contract was read from the installed binary.
+
+**What does NOT exist yet:** the IPC namespace, the recording UI, the inbox,
+optional tidy, and the memory-link outbox. Those are the remaining Phase 4 work.
+
+**Model location:** `~/.cache/labos-whisper/ggml-base.en.bin` (148 MB,
+downloaded from `ggerganov/whisper.cpp` on Hugging Face with the user's
+approval). An app-specific directory, deliberately not shared, so LabOS cannot
+pick up or overwrite another tool's model.
+
+**A trap worth knowing.** The model bundled with the Homebrew formula
+(`for-tests-ggml-tiny.bin`) is a **575 KB stub, not a real model**. It runs the
+whole pipeline — model loads, mel runs, decode runs, exit 0 — and returns
+**empty output**. That reads as *"whisper works but hears nothing"* and would
+have been diagnosed as an audio problem rather than a model problem. A real
+`tiny.en` is ~75 MB; `base.en` ~142 MB. **Check model size before believing a
+silent transcript.**
+
+**Recording is yours to click.** Per the briefing, capture must be deliberately
+activated with a visible indicator — never always-listening. The recorder UI can
+be built and tested, but the microphone permission and the actual click are
+yours. Everything downstream of the audio file can be verified against a fixture
+WAV in the meantime; the JFK clip is a convenient one at
+`/opt/homebrew/Cellar/whisper-cpp/1.9.2/share/whisper-cpp/jfk.wav`.
+
+**Failure states are distinguished on purpose:** `no-binary`, `no-model`,
+`no-audio`, `audio-unreadable`, `timeout`, `failed` and `empty-result` are
+separate outcomes. Silence is never presented as "no speech detected" unless the
+tool actually said so.
