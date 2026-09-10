@@ -464,6 +464,82 @@ gallery on top of this adapter.
 
 ---
 
+## 2026-09-10 — Phase 2, step B: sprint cards, gallery and shortlist
+
+**Status:** complete
+
+**Changed paths**
+
+- `packages/frontend/core/src/modules/labos-repo/sprint-model.ts`
+- `packages/frontend/core/src/modules/labos-repo/project-preferences.ts`
+- `packages/frontend/core/src/modules/labos-repo/sprint-styles.css.ts`
+- `packages/frontend/core/src/modules/labos-repo/sprint-views.tsx`
+- `packages/frontend/apps/electron/src/main/labos/memcp-handlers.ts`
+- `packages/frontend/core/src/desktop/pages/labos-projects/index.tsx`
+- `packages/frontend/core/src/desktop/router.tsx`
+- `labos/scripts/sprint-model.test.mjs`, `labos/scripts/project-preferences.test.mjs`
+
+**Commands and results**
+
+- `node --test labos/scripts/*.test.mjs` → **191/191 pass**
+- `yarn typecheck` → clean (0 errors)
+- `oxlint` across 17 Phase 2 files → 0 errors
+- `yarn affine @affine/electron-renderer build` → compiled; `labos/projects`
+  route and the Phase 2 UI strings present in the emitted bundle
+
+**The five separate dimensions**
+
+The briefing is explicit that a worker saying "done" is not a verified merge or
+an independent QA result. That is not a style preference, and MeMCP's own data
+supports it: every task carries `evidence_label` of `reported_*`, and its
+`what_works` section note says "Task completion is reported status, not
+functional or browser proof".
+
+So the card renders five distinct rows, and a test asserts all four
+non-reported dimensions remain `not-recorded` for a completed task — meaning a
+future change cannot quietly conflate them:
+
+| Dimension | What a completed task shows |
+|---|---|
+| Reported status | `Completed (reported)` |
+| Tests | `Not recorded` — "a completed status is not test evidence" |
+| Independent QA | `Not recorded` — "self-review is not independent QA" |
+| Integration | `Not recorded`, or a commit labelled as *not* proof of merge |
+| Cleanup | `Not recorded` |
+
+**Honesty rules carried into the UI**
+
+- A missing screenshot gets a placeholder that explains **why**, never a bare
+  grey box and never a fabricated image.
+- A project with no recorded status shows "No status recorded" rather than
+  defaulting to something plausible.
+- A disconnected service shows "MeMCP not connected", or "Last received 4m ago"
+  with the data marked cached — never presented as live.
+- A project with no sprint or phase structure says so, and does not invent a
+  sprint plan.
+
+**Defect found while typechecking**
+
+The shared storage API is `globalState.get`/`.set`, not `getAllGlobalState`. More
+importantly, the store hydrates asynchronously: reading before its `ready`
+promise resolves returns nothing, which would have looked like **a lost shortlist
+on every launch**. The read now awaits `ready` and the reason is recorded in the
+code.
+
+**Accessibility decisions**
+
+- Reordering uses real buttons, so it works from a keyboard and a screen reader.
+  A drag handle alone would exclude both. Each control is labelled with the
+  project it moves, because "Move up" repeated six times is useless to a screen
+  reader.
+- Verification state is never carried by colour alone: every badge has words,
+  and "not recorded" renders as a dashed outline rather than a quiet green, so
+  absence reads as absence rather than as a pass.
+
+**Next step:** the home screen, then Phase 3 agent actions.
+
+---
+
 ## Environment hazard: packaging leaves a nested-node_modules typecheck
 
 **Found:** 2026-09-10, while re-verifying the Phase 0 isolation commit.
