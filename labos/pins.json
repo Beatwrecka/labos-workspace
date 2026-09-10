@@ -1,0 +1,76 @@
+{
+  "$schema": "./pins.schema.json",
+  "labosPinsVersion": 1,
+  "product": "LabOS Workspace",
+  "upstream": {
+    "repository": "https://github.com/toeverything/AFFiNE",
+    "releaseTag": "v0.27.4",
+    "releaseName": "0.27.4",
+    "releasePublishedAt": "2026-08-18T16:51:39Z",
+    "releaseIsPrerelease": false,
+    "pinnedCommit": "b4c8548c09da21b2898443559a5b846f0ccf5dd8",
+    "pinnedCommitDate": "2026-08-17T12:01:30+08:00",
+    "integrationBranch": "main",
+    "selectedOver": "canary"
+  },
+  "fork": {
+    "repository": "https://github.com/Beatwrecka/labos-workspace",
+    "owner": "Beatwrecka",
+    "visibility": "public",
+    "codeOnly": true
+  },
+  "toolchain": {
+    "node": {
+      "required": "22.23.2",
+      "source": ".nvmrc",
+      "observed": "22.23.2"
+    },
+    "yarn": {
+      "required": "4.18.0",
+      "source": "package.json#packageManager",
+      "observed": "4.18.0",
+      "path": ".yarn/releases/yarn-4.18.0.cjs"
+    },
+    "rust": {
+      "required": "1.97.1",
+      "source": "rust-toolchain.toml#toolchain.channel",
+      "observed": "1.97.1 (8bab26f4f 2026-07-14)"
+    },
+    "electron": {
+      "required": "^39.0.0",
+      "source": "packages/frontend/apps/electron/package.json"
+    },
+    "xcodeCommandLineTools": {
+      "observed": "/Applications/Xcode.app/Contents/Developer",
+      "clang": "Apple clang version 21.0.0 (clang-2100.0.123.102)"
+    }
+  },
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "osVersion": "26.5.2",
+    "verifiedAt": "2026-09-10"
+  },
+  "licensing": {
+    "rootLicense": "LICENSE",
+    "rootLicenseKind": "MIT with carve-outs",
+    "mitText": "LICENSE-MIT",
+    "carveOutDirectories": ["packages/backend", "packages/common/native"],
+    "carveOutLicense": "packages/backend/server/LICENSE",
+    "carveOutNotes": [
+      "Enterprise Edition terms apply to the carve-out directories for production use.",
+      "A Community Edition / client-side MPL-2.0 carve-out is defined in the same file.",
+      "LabOS does not remove or bypass any licence check and enables no enterprise-only feature."
+    ],
+    "thirdPartyNotices": "Maintained by upstream at THIRD-PARTY-LICENSES if present; see build-inventory.md"
+  },
+  "isolation": {
+    "applicationName": "LabOS Workspace",
+    "bundleId": "app.labos.workspace",
+    "protocolScheme": "labos",
+    "userDataDirName": "LabOS Workspace",
+    "cacheDirName": "LabOS Workspace",
+    "logsDirName": "LabOS Workspace/logs",
+    "upstreamAutoUpdate": "disabled-for-this-fork"
+  }
+}

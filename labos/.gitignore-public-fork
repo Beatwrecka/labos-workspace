@@ -1,0 +1,86 @@
+# LabOS Workspace — public-fork safety net.
+#
+# This repository is a PUBLIC, CODE-ONLY fork of https://github.com/toeverything/AFFiNE.
+# Its default branch is therefore world-readable, so anything committed here is
+# published the moment it is pushed. .gitignore is one layer of protection, not
+# proof that a commit is safe — this file catches the second class of mistake:
+# real user content, private integration material and machine-specific paths
+# that should never have existed in a source tree at all.
+
+# --- Private briefing pack and its derivatives -----------------------------
+# The unredacted LabOS briefing (START_HERE / BUILD_PLAN / QA_CHECKLIST /
+# REFERENCES) is private handoff material and must never be published.
+labos-workspace-brief/
+**/labos-workspace-brief/
+
+# --- Real user content and personal workspace material --------------------
+# Native AFFiNE workspace stores, exports and recovery packs.
+*.affine-backup
+affine-backup/
+workspace-export/
+**/workspaces/affine-cloud/
+
+# --- Private integration material ------------------------------------------
+# MeMCP is Jonny's private project; only independently written adapter code may
+# live here, never its source, database, generated projections or config.
+MeMCP/
+.memcp/
+**/PROJECT_CONTEXT.md
+**/PROJECT_TASKS.md
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+memory.sqlite*
+
+# --- Credentials and local environment -------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+credentials*
+secrets*
+id_rsa
+id_dsa
+.npmrc
+.pypirc
+
+# --- Machine-local configuration and scratch ---------------------------------
+# Absolute machine paths belong in private configuration, never in source.
+labos/local/
+labos/**/local-config.json
+.DS_Store
+Thumbs.db
+
+# --- Screenshots, recordings and other identifying evidence -----------------
+# Public QA uses synthetic fixtures; real captures stay private.
+labos/evidence/
+*.mov
+*.mp4
+*.wav
+*.aiff
+
+# --- Build and tool output --------------------------------------------------
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+out/
+**/out/
+build/
+**/build/
+target/
+**/target/
+*.tsbuildinfo
+coverage/
+**/coverage/
+
+# --- LabOS runtime state ----------------------------------------------------
+# Drafts, conflict recovery, job telemetry and the link outbox are operational
+# data owned by the local app, not source.
+labos/state/
+labos/jobs/
+labos/outbox/
