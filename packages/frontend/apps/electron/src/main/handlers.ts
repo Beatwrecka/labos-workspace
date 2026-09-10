@@ -9,6 +9,7 @@ import { configStorageHandlers } from './config-storage';
 import { findInPageHandlers } from './find-in-page';
 import { importHandlers } from './import';
 import { labosRepoHandlers } from './labos/handlers';
+import { labosMemcpHandlers } from './labos/memcp-handlers';
 import { getLogFilePath, logger, revealLogFile } from './logger';
 import { recordingHandlers } from './recording';
 import { checkSource } from './security-restrictions';
@@ -50,6 +51,7 @@ export const allHandlers = {
   byokStorage: byokStorageHandlers,
   auth: authHandlers,
   labosRepo: labosRepoHandlers,
+  labosMemcp: labosMemcpHandlers,
 };
 
 export const registerHandlers = () => {

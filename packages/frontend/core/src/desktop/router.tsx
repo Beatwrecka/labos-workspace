@@ -121,6 +121,11 @@ export const topLevelRoutes = [
         lazy: () => import('./pages/labos-repo'),
       },
       {
+        // LabOS project portfolio, backed by the local MeMCP service.
+        path: '/labos/projects',
+        lazy: () => import('./pages/labos-projects'),
+      },
+      {
         path: '/clipper/import',
         lazy: () => import('./pages/import-clipper'),
       },
