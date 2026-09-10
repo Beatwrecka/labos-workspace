@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { classifyPaths, scanPaths, stagedModifications } from './leak-scan.mjs';
+import { candidatePaths, classifyPaths, scanPaths } from './leak-scan.mjs';
 
 const ruleIds = paths => scanPaths(paths).map(f => f.rule);
 
@@ -65,23 +65,45 @@ test('an upstream path MODIFIED by this fork is audited, not skipped', () => {
   // Regression guard: classification was history-only, so an upstream file that
   // this fork edits (e.g. src/main/config.ts during isolation work) was treated
   // as "already public upstream" and skipped — hiding anything the edit added.
+  //
+  // The real commit is asserted in the CLI integration below; here the
+  // classifier rule is tested directly against a real upstream file so the test
+  // does not depend on transient staging state (staging is empty right after a
+  // commit, which would make a state-dependent assertion meaningless).
   const pin = JSON.parse(
     readFileSync(new URL('../pins.json', import.meta.url), 'utf8')
   ).upstream.pinnedCommit;
 
-  // A real upstream file that this fork edits.
-  const edited = 'packages/frontend/apps/electron/src/main/config.ts';
-  const modified = stagedModifications();
-  assert.ok(
-    modified.has(edited),
-    `${edited} must be reported as a staged modification`
-  );
+  // Forge an upstream-owned path and assert the classifier treats it as
+  // inherited only when it is NOT part of the change under review.
+  const upstreamFile = 'packages/frontend/core/src/utils/channel.ts';
 
-  const { authored } = classifyPaths([edited], pin);
-  assert.ok(
-    authored.includes(edited),
+  assert.deepEqual(
+    classifyPaths([upstreamFile], pin, new Set()).authored,
+    [],
+    'an unmodified upstream path is inherited'
+  );
+  assert.deepEqual(
+    classifyPaths([upstreamFile], pin, new Set([upstreamFile])).authored,
+    [upstreamFile],
     'a modified upstream path must be audited rather than trusted from history'
   );
+});
+
+test('the CLI audits every path the commit actually changes', () => {
+  // Integration check on real staged state: whatever is staged must be audited,
+  // including upstream files this fork edits.
+  const pin = JSON.parse(
+    readFileSync(new URL('../pins.json', import.meta.url), 'utf8')
+  ).upstream.pinnedCommit;
+  const staged = candidatePaths('staged');
+  const { authored } = classifyPaths(staged, pin);
+  for (const path of staged) {
+    assert.ok(
+      authored.includes(path),
+      `staged path ${path} must be audited, not skipped as upstream-owned`
+    );
+  }
 });
 
 test('a brand-new path is audited, not silently skipped', () => {

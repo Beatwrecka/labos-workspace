@@ -59,18 +59,39 @@ export function findPackagedApp(flavour = 'labos') {
   return found ?? null;
 }
 
+/**
+ * Locate the `asar` CLI.
+ *
+ * It is not at a stable path: Yarn places it under whichever workspace depends
+ * on it, and that location moves with the hoisting settings used for the last
+ * install. Resolving it defensively keeps these checks runnable whether the tree
+ * was last installed for packaging or for testing.
+ */
+function resolveAsarBin() {
+  const candidates = [
+    resolve(repoRoot, 'packages/frontend/apps/electron/node_modules/.bin/asar'),
+    resolve(repoRoot, 'node_modules/.bin/asar'),
+    resolve(
+      repoRoot,
+      'packages/frontend/apps/electron/node_modules/asar/bin/asar.js'
+    ),
+    resolve(repoRoot, 'node_modules/asar/bin/asar.js'),
+  ];
+  const found = candidates.find(candidate => existsSync(candidate));
+  if (!found) {
+    throw new Error(
+      `Unable to locate the asar CLI. Looked in:\n${candidates.join('\n')}\n` +
+        'Run `yarn install --immutable` first.'
+    );
+  }
+  return found;
+}
+
 /** List asar entries using the asar CLI shipped with electron-forge. */
 export function listAsar(asarPath) {
   const output = execFileSync(
-    'node',
-    [
-      resolve(
-        repoRoot,
-        'packages/frontend/apps/electron/node_modules/.bin/asar'
-      ),
-      'list',
-      asarPath,
-    ],
+    process.execPath,
+    [resolveAsarBin(), 'list', asarPath],
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
   );
   return output

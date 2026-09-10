@@ -185,7 +185,7 @@ export function scan(mode = 'staged') {
  * upstream history. Flagging those produces noise that trains people to ignore
  * the scanner. A path added or modified by a LabOS commit is what we audit.
  */
-export function classifyPaths(paths, pinCommit) {
+export function classifyPaths(paths, pinCommit, modifiedPaths = null) {
   if (paths.length === 0) return { authored: [], inherited: [] };
 
   // One `git log` pass over the candidate set, rather than one subprocess per
@@ -245,7 +245,7 @@ export function classifyPaths(paths, pinCommit) {
   // reachable from the pin AND this commit does not modify it. Files deleted
   // since the pin, unmerged paths and anything git cannot place fall through to
   // `authored` — fail towards inspection, never towards silence.
-  const modified = stagedModifications();
+  const modified = modifiedPaths ?? stagedModifications();
   const inherited = [];
   const authored = [];
   for (const path of paths) {

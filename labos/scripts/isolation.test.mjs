@@ -43,14 +43,19 @@ test('the LabOS bundle identifier is distinct from every AFFiNE identifier', () 
   assert.notEqual(pins.isolation.bundleId, 'pro.affine.app');
 });
 
+// Source assertions below match on semantics, not exact layout: the repo's own
+// `oxfmt` pre-commit hook rewraps long call expressions, so a test asserting a
+// single-line `app.setPath('sessionData', …)` breaks the moment the formatter
+// runs — without anything being wrong.
+
 test('product name and app-data folder cannot collide with stock AFFiNE', () => {
   // productName drives the packaged app name; a collision would mean the two
   // apps overwrite each other's bundle.
   assert.match(makeEnv, /'LabOS Workspace'/);
   // The runtime must redirect userData/sessionData, not inherit AFFiNE's path.
   assert.match(runtimeConfig, /'LabOS Workspace'/);
-  assert.match(mainIndex, /app\.setPath\('userData'/);
-  assert.match(mainIndex, /app\.setPath\('sessionData'/);
+  assert.match(mainIndex, /app\.setPath\(\s*'userData'/);
+  assert.match(mainIndex, /app\.setPath\(\s*'sessionData'/);
   assert.match(
     mainIndex,
     /appDataFolderName !== 'AFFiNE'/,
@@ -70,12 +75,12 @@ test('the app name and log path are isolated, not just userData', () => {
   );
   assert.match(
     mainIndex,
-    /app\.setPath\('logs'/,
+    /app\.setPath\(\s*'logs'/,
     'the log directory must be redirected too'
   );
   // setName must be applied before the userData redirect.
   const setNameAt = mainIndex.indexOf('app.setName(appDataFolderName)');
-  const setUserDataAt = mainIndex.indexOf("app.setPath('userData'");
+  const setUserDataAt = mainIndex.search(/app\.setPath\(\s*'userData'/);
   assert.ok(setNameAt !== -1 && setUserDataAt !== -1);
   assert.ok(
     setNameAt < setUserDataAt,

@@ -187,3 +187,39 @@ single-instance lock. The stock AFFiNE bundle, application-support directory and
 log file were confirmed unchanged across every LabOS launch.
 
 **Next step:** Phase 1 — file-backed repository documents.
+
+---
+
+## Environment hazard: packaging leaves a nested-node_modules typecheck
+
+**Found:** 2026-09-10, while re-verifying the Phase 0 isolation commit.
+
+`labos/scripts/package-labos.sh` sets `nmHoistingLimits workspaces` for the
+packaging phase, because electron-forge needs per-workspace `node_modules` to
+bundle the runtime dependencies esbuild leaves external. That install leaves
+**602 nested `node_modules` directories** behind. With duplicates of `rxjs`,
+`zod` and similar on disk, `yarn typecheck` reports ~1753 errors across **1091
+files** entirely inside `blocksuite/` — mostly `TS2883` ("inferred type cannot
+be named without a reference to … node_modules/rxjs"), plus `TS2339`, `TS7006`
+and `TS2305`.
+
+**It is not a real regression.** Two checks establish that:
+
+- None of the 1091 files reporting errors appears in the commit's changed-file
+  list (`comm` of the two sorted lists is empty).
+- Removing the 602 nested `node_modules` and reinstalling cleanly returns
+  `yarn typecheck` to **0 errors**.
+
+**Action:** after packaging, restore the default layout before trusting a
+typecheck:
+
+```sh
+find . -mindepth 3 -maxdepth 6 -type d -name node_modules \
+  -not -path "./node_modules/*" -exec rm -rf {} +
+rm -rf node_modules
+yarn install --immutable
+```
+
+This is recorded because the failure is loud and looks like a broken change. A
+future session that sees 1753 errors in `blocksuite/` after packaging should
+clean the install rather than start debugging upstream source.
