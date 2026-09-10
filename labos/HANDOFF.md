@@ -1,30 +1,35 @@
 # LabOS Workspace — handoff
 
-**Written:** 2026-09-10 · **Branch:** `main` · **Last commit:** `fc312493df`
-**Working tree:** clean · **242 → 264 tests passing** · **Typecheck clean**
+**Written:** 2026-09-10 · **Branch:** `main` · **Last commit:** `26deccc640`
+**Working tree:** clean · **264 tests passing** · **Typecheck + lint clean**
 
 Read this first, then `labos/progress-ledger.md`, which is the detailed
 per-step record of every change, command, result, decision and defect.
 
-## ⚠️ Start here: the single next action (30 minutes of work)
+## ⚠️ Start here
 
-**Mount the agent panel in the document view.** Everything else is done: the
-gateway, the prompt composition, the IPC handlers and the panel component all
-exist, are tested, and are typechecked. The panel is simply not rendered yet.
+**Phases 0, 1, 2 and 3 are built.** Everything below is committed, tested and in
+the shipped bundle. The blocker is that **nobody has looked at it** — this agent
+context cannot drive a GUI, so every UI claim rests on the bundle, the handlers
+and the logs, not on seeing the screen.
 
-In `packages/frontend/core/src/desktop/pages/labos-repo/index.tsx`, inside the
-`LabosRepoDocumentView` branch, render `<LabosAgentPanel … />` from
-`@affine/core/modules/labos-repo/agent-panel`, wired to the `labosAgent` handler.
-The props it needs are all already available in that component: `relativePath`,
-the document `content`, and the root's absolute path for `cwd` (that one is
-main-process only, so add a handler that returns the root path, or pass the root
-id and resolve it in main).
+**So the highest-value next action is yours, not the agent's:** launch the app
+and open `/labos/home`, `/labos/repo` and `/labos/projects`, then report what
+actually looks wrong.
 
-Then: `. labos/scripts/labos-env.sh && yarn typecheck && node --test labos/scripts/*.test.mjs`
+```sh
+cd ~/Programming/jonnys-lab/projects/desktop-apps/labos-workspace
+. labos/scripts/labos-env.sh
+bash labos/scripts/launch-labos.sh --doctor   # readiness, no launch
+bash labos/scripts/launch-labos.sh            # launch
+```
 
-**Do not add an apply path.** The gateway is read-only by design and the panel
-has no apply button on purpose. A proposal should be applied by the human, or by
-a future reviewed-diff flow — never automatically.
+If the agent session is resumed instead, the next build step is **Phase 4
+(voice)**, or fixing whatever the UI review turns up — the latter first, because
+it is real feedback and the former is not yet.
+
+**Do not add an apply path for agent proposals.** The gateway is read-only and
+the panel has no apply button on purpose.
 
 ---
 
