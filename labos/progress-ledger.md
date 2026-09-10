@@ -186,7 +186,59 @@ LabOS keeps its own `global-state.json`, `window-state.json`, storages and
 single-instance lock. The stock AFFiNE bundle, application-support directory and
 log file were confirmed unchanged across every LabOS launch.
 
-**Next step:** Phase 1 — file-backed repository documents.
+## 2026-09-10 — Phase 1, step A: repository file service
+
+**Status:** complete
+
+**Changed paths**
+
+- `packages/frontend/apps/electron/src/main/labos/repo-file-service.ts`
+- `labos/scripts/repo-file-service.test.mjs`
+
+**Commands and results**
+
+- `node --test labos/scripts/repo-file-service.test.mjs` → 25/25 pass.
+
+**What it does**
+
+The service is main-process only and treats a repository `.md` file as owned by
+its checkout, not by LabOS. Reads return exact bytes plus a sha256; writes take
+an `expectedHash` precondition and go through a same-directory temp file, `fsync`
+and rename; every accepted write stores a recovery version first.
+
+**Decisions**
+
+- Recovery versions are written to LabOS's own state directory, never beside the
+  user's document. Dropping stray `.bak` files into a repository would appear as
+  untracked changes in the user's Git status.
+- Symlinked documents are refused rather than followed, so a document's identity
+  is never ambiguous and a link cannot reach content outside the trusted root.
+- Exclusions are hard-coded by class (VCS, dependency, build, cache, secret
+  material, databases) rather than relying on `.gitignore` alone, because
+  `.gitignore` is a convenience file, not a security boundary.
+- Limits (2 MiB per document, 5000 documents per root) are configurable so tests
+  can exercise the boundaries cheaply.
+
+**Defects found and fixed while testing**
+
+1. **Deleted files reported as `io-error`** rather than `file-missing`. The
+   resolver threw before the reachable missing-file branch, so the UI would have
+   shown a vague failure where it should say "File moved/missing". The write path
+   now inspects the error code.
+2. A test created a service without registering its root, which the suite caught
+   immediately — recorded because it shows the tests fail loudly rather than
+   passing vacuously.
+
+**Stated limitation, carried forward honestly**
+
+An atomic rename is not a compare-and-swap against an unrelated writer. The hash
+precondition narrows the window but cannot close it: another process can write
+between the check and the rename. Filesystem locking is advisory. The contested-
+write test asserts the practical guarantee (the external version is never
+clobbered, the stale writer fails safely), not perfect exclusivity, and the
+service documents this rather than claiming a guarantee it cannot keep.
+
+**Next step:** the Repo document UI.
 
 ---
 
