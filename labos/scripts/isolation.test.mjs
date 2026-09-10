@@ -211,3 +211,37 @@ test('the renderer-facing scheme matches the main-process scheme', () => {
   assert.match(preloadConfig, /'labos'/);
   assert.match(runtimeConfig, /isLabosBuild \? 'labos' : 'affine'/);
 });
+
+test('every release type has a built-in server, or that build cannot start', () => {
+  // Regression guard for a real defect, found only by actually opening the app:
+  // Phase 0 added the `labos` release type to the telemetry channel map but not
+  // to BUILD_IN_SERVERS. With no entry the list resolves to [], so
+  // DefaultServerService throws "No server found" while the app is starting and
+  // the window shows an error page instead of a workspace. Every check in this
+  // file passed while that was true.
+  //
+  // The chain is a nested conditional, not a Record<Channel, …> map, so the type
+  // system does not catch a missing release type here — hence this test. It
+  // asserts the property (every release type is present before the empty
+  // fallback), not the exact shape of the chain.
+  const constant = read(
+    repoRoot,
+    'packages/frontend/core/src/modules/cloud/constant.ts'
+  );
+  const chainStart = constant.indexOf('BUILD_IN_SERVERS');
+  assert.ok(chainStart !== -1, 'BUILD_IN_SERVERS must exist');
+  const chain = constant.slice(
+    chainStart,
+    constant.indexOf('TelemetryChannel', chainStart)
+  );
+  for (const releaseType of ['stable', 'beta', 'internal', 'canary', 'labos']) {
+    assert.ok(
+      chain.includes(`'${releaseType}'`),
+      `BUILD_IN_SERVERS has no ${releaseType} entry, so that build resolves to [] and cannot start`
+    );
+  }
+  assert.ok(
+    chain.indexOf("'labos'") < chain.indexOf(': [];'),
+    'the labos entry must be reachable before the empty fallback'
+  );
+});

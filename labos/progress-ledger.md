@@ -648,3 +648,227 @@ yarn install --immutable
 This is recorded because the failure is loud and looks like a broken change. A
 future session that sees 1753 errors in `blocksuite/` after packaging should
 clean the install rather than start debugging upstream source.
+
+---
+
+## Session: LabOS branding, and three shipped-but-unusable states (2026-09-10, later)
+
+**Scope asked for:** Phase 5 item 1 — light LabOS branding only.
+
+**What that turned into:** the branding was small. Opening the app for the first
+time turned up **three states that had passed every test in this repository and
+were unusable on screen**. That is the headline of this entry, not the branding.
+
+### Phase 5 item 1 — branding (done, and seen)
+
+`BUILD_PLAN.md` §9: the LabOS name, a simple temporary monogram, restrained
+orange accents with adequate contrast, upstream attribution retained.
+
+New files, all under `packages/frontend/core/src/modules/labos-repo/`:
+
+| File | What it is |
+|---|---|
+| `brand.ts` | name, monogram, accent and mark colours, `isLabosScheme`, `formatDocumentTitle`, WCAG `contrastRatio`. Pure — no React/DOM/Electron |
+| `brand.css.ts` | four styles; every colour imported, no hex literal |
+| `labos-mark.tsx` | the "LO" mark and the mark + name lockup |
+| `labos-document-title.tsx` | `useLabosDocumentTitle` hook |
+
+Changed: `desktop/components/document-title/index.tsx` (LabOS name only for
+LabOS builds, gated on `appInfo.scheme`), `home-view.tsx` (header renders the
+lockup), `labos-home|repo|projects/index.tsx` (each sets its own window title).
+
+**Why a hook and not a component.** `/labos/home`, `/labos/repo` and
+`/labos/projects` are top-level routes in `desktop/router.tsx`, deliberately
+outside `/workspace` — so `DocumentTitle`, which the workspace layout mounts,
+**never runs on them**. That was the real reason the window said `AFFiNE`: not
+i18n (the handoff's guess) but a component that is never mounted on those routes.
+Two of the three pages return from several branches, so a hook called once at the
+top cannot be forgotten by a branch.
+
+**The mark needed two colour pairs, not one.** A deep orange that carries white
+initials sits at ~2.9:1 against a near-black canvas, so the square loses its edge
+in dark mode; a light-enough orange cannot carry white text at all (~2.3:1). So
+light = deep orange + white initials, dark = light orange + near-black initials.
+`branding.test.mjs` measures both: initials at 4.5:1 as text, the square at 3:1
+against the canvas as a graphical object.
+
+**Verified by the user, on screen** (the first UI claim in this project that is
+not inferred from a bundle): mark, orange name and window title all correct, and
+`/labos/repo` and `/labos/projects` both render. 16 branding tests + 281 total.
+
+### DEFECT — no `labos` server entry, so the app could not start
+
+**Symptom:** a full-window "500 Something is wrong … No server found".
+
+**Cause:** `modules/cloud/constant.ts` builds `BUILD_IN_SERVERS` as a nested
+`appBuildType` chain ending in `[]`. `'labos'` was never added, so the list is
+empty → `serversService.server$('affine-cloud')` is `undefined` →
+`DefaultServerService`'s constructor throws → the error page.
+
+**The tell:** `getOfficialTelemetryEndpoint` in the same file *does* handle
+`'labos'`, with a comment. Phase 0 added the release type to the telemetry map
+and missed the server list.
+
+**Fix:** extend the existing `'stable'` branch condition with `'labos'` rather
+than duplicating the block, so LabOS follows upstream's stable definition
+instead of drifting from a copy. User's decision, and the right one: the entry
+is what carries `ServerFeature.LocalWorkspace`.
+
+**Regression test:** `isolation.test.mjs` now asserts every release type
+(stable, beta, internal, canary, labos) appears in that chain before the empty
+fallback. The chain is a nested conditional, not a `Record<Channel, …>`, which is
+exactly why the type system never caught it.
+
+### DEFECT — the LabOS pages had no way in
+
+**Symptom:** after the server fix, a **blank white window**.
+
+**Cause:** the app opened upstream's root route with **zero workspaces**
+(`workspace-engine:local-workspace-ids:v1: []` in its own state), which has
+nothing to draw — and the LabOS pages, being top-level routes, had no entry point
+at all. No menu item, no address bar, and an installed app cannot be navigated by
+typing a URL. The handoff's instruction to "open `/labos/home`" was not
+actionable; nobody could ever have reached those pages.
+
+**Fix, two parts:** the `/` route redirects to `/labos/home` for the `labos`
+build only (upstream builds keep upstream's root), and **File → LabOS Home** was
+added to the application menu, using the existing `addTab({basename, view})`
+machinery so no navigation path is invented in the menu.
+
+**Note:** `launch-labos.sh` claims "app bundle present" in the doctor and then
+launches; the earlier handoff recorded Phase 0 as complete *because the bundle,
+handlers and logs looked right*. They did. The window did not.
+
+### DEFECT — the packaged app was unsigned, so macOS killed it
+
+`package-labos.sh` exports `SKIP_BUNDLE=${SKIP_BUNDLE:-1}`, so forge's signing
+step is skipped: the bundle has **no `Contents/_CodeSignature`**, only the
+Electron binary's link-time adhoc signature, which claims resources a bundle
+signature requires. macOS kills such an app instantly — **no process and not one
+line in the log**, which is why the first launch looked like nothing happened.
+`codesign --verify --deep --strict` reports it.
+
+Workaround used and verified: `codesign --force --deep --sign - "<bundle>"` then
+`open -a`. The doctor already detects this correctly; **`launch-labos.sh` prints
+"signature INVALID - the app will be killed at launch" and launches anyway**,
+because it only refuses on `--doctor`. Both are still open.
+
+### DEFECT (procedure) — the documented cleanup does not clean
+
+The cleanup recorded above omits the yarn config. `package-labos.sh` leaves
+`nmHoistingLimits: workspaces` + `nmMode: classic` in the project config, so
+`rm -rf node_modules && yarn install --immutable` **recreates** the nested
+`node_modules`. Measured: 834 before, 834 after.
+
+Correct procedure (verified: 834 → 2 nested, and `yarn typecheck` then exits 0):
+
+```sh
+git checkout -- .yarnrc.yml          # packaging also dirties this tracked file
+find . -mindepth 3 -maxdepth 7 -type d -name node_modules \
+  -not -path "./node_modules/*" -exec rm -rf {} +
+rm -rf node_modules
+yarn install --immutable
+```
+
+### The pattern worth carrying forward
+
+Every one of the three broken states passed the full suite. 264 tests, then 280
+— green — while the window showed an error page, then nothing, then was killed by
+macOS. Tests here assert the *properties* the code claims; they cannot tell you
+whether the product opens. Two guards follow from that:
+
+- a test per *behaviour that can only be seen* is impossible, so the cheap
+  substitute is a test per **registry a new release type must be added to** —
+  which is what caught the server list;
+- the renderer's console is not captured anywhere, so a renderer failure is
+  invisible from the main log. Forwarding it to `main.log` would make the next
+  one diagnosable instead of guessed at. Not done.
+
+### Regression found immediately afterwards: my own menu item blanked the app
+
+The user reported a blank window again minutes after confirming the branding. It
+was a regression introduced by the fix above, and the app's own log pointed
+straight at it:
+
+```
+[error] (main) Error: ERR_UNEXPECTED (-9) loading 'assets://labos/home'
+```
+
+`loadTab` composes a tab URL as `new URL(basename + pathname, mainWindowOrigin)`.
+The new menu item passed basename `'/'` together with pathname `'/labos/home'`,
+so the concatenation produced `'//labos/home'` — which `new URL` reads as
+**protocol-relative** and resolves with host `labos` and path `/home`. The load
+fails and the window is empty.
+
+**Why it persisted:** tabs are stored in the app's own state
+(`global-state.json` → `tabViewsMetaSchema.workbenches[].views[].path`) and that
+tab was the active workbench, so **every subsequent launch restored the same
+unloadable tab** and opened blank. Confirmed by inspecting the file, not inferred.
+
+**Fix:** the menu item now calls `addTab({ basename: '/' })` — an empty-path tab —
+and relies on the renderer's `/` → `/labos/home` redirect, so the main process
+constructs no route URL at all. The reasoning is in the code, because the `'//'`
+trap will catch the next caller that passes a non-`/workspace` path.
+
+**Repair:** the persisted tab was removed from `global-state.json` (with a copy
+kept at `/tmp/labos-global-state-repair-backup.json`), leaving the clean root tab
+active. Repackaged, ad-hoc signed and relaunched: the log now shows
+`loading tab … at assets://./` with no load error, and the user confirms a UI is
+visible.
+
+**Not done, and worth doing:** nothing validates a tab URL before it is loaded, so
+this class of mistake is silent. A validation or a proper path join in `loadTab`
+would fail loudly instead.
+
+### Committing, and the second half of the cleanup
+
+The session's work was committed to `main` (nothing pushed). Two things went wrong
+on the way, and both are instructive:
+
+**The first commit captured `.yarnrc.yml`.** `git checkout -- .yarnrc.yml`
+restores from the **index**, not HEAD — and an earlier `git add -A` had already
+staged the packaging-modified version, so the "restore" was a no-op and the commit
+flipped the project to `nmHoistingLimits: workspaces` + `nmMode: classic`, i.e.
+the packaging layout. Amended out. Correct command:
+`git restore --source=HEAD --staged --worktree .yarnrc.yml`.
+
+**A typecheck after packaging needs the buildinfo cleared too.** With the nested
+`node_modules` deleted and reinstalled, `yarn typecheck` still failed (exit 2, then
+1) with `TS2883 ... cannot be named without a reference to 'Element' from
+'@affine/component/node_modules/@types/react'` and `TS2688: Cannot find type
+definition file for 'affine__env'` across upstream packages — the phantom class
+recorded earlier in this ledger. The missing step was deleting the stale
+`tsconfig.tsbuildinfo` files: they list the nested paths as inputs, so with those
+directories gone tsc rebuilds against inputs that do not exist. After
+
+```sh
+find . -name tsconfig.tsbuildinfo -not -path "./node_modules/*" \
+  -not -path "*/node_modules/*" -delete
+```
+
+`yarn typecheck` exits **0**. `HANDOFF.md` and `README.md` now document all three
+parts of the cleanup.
+
+**The leak scanner earned its keep again.** It rejected the first draft of the
+rewritten handoff for containing a machine-local data-store path — a real mistake
+that would have been published in a public repository. The path was removed.
+
+### State at the end of this session
+
+**Done:** branding (seen by the user); the missing `labos` server entry; the
+missing entry point; the menu-item regression and the state it left behind; the
+post-packaging cleanup correction (all three parts); `HANDOFF.md` rewritten as a
+single document with the next tasks in order; `labos/README.md` corrected (it
+listed no `HANDOFF.md` and documented a cleanup that does not clean); 281/281
+tests; `yarn typecheck` exiting 0 on a properly cleaned tree; packaged, signed,
+launched and rendering; committed to `main` with a clean working tree.
+
+**Open, as recorded in `HANDOFF.md`:** the unsigned bundle
+(`package-labos.sh` leaves one macOS kills silently); `launch-labos.sh` printing
+that warning and launching anyway; renderer console output still not captured in
+`main.log`; `loadTab`'s URL concatenation; the stuck MeMCP daemon on 3211; the
+generated shell `<title>AFFiNE</title>` flashing before the renderer sets the
+title; Phase 4 voice wiring; the rest of Phase 5; Phase 6.
+
+**Nothing was published.** This session's work was committed to `main` locally;
+nothing was pushed and no upstream PR was opened.

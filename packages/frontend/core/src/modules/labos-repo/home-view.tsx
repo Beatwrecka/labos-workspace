@@ -20,6 +20,7 @@ import type {
   LabosHomeState,
 } from './home-model';
 import { s } from './home-styles.css';
+import { LabosLockup } from './labos-mark';
 import {
   detailText,
   emptyState,
@@ -75,7 +76,9 @@ export function LabosHomeView({
   return (
     <div className={s.page} data-labos-home>
       <header className={s.header}>
-        <h1 className={s.title}>LabOS Workspace</h1>
+        <h1 className={s.title}>
+          <LabosLockup />
+        </h1>
         <div className={s.headerActions}>
           <button type="button" className={s.linkButton} onClick={onOpenRepo}>
             Repository documents
