@@ -1,10 +1,32 @@
 # LabOS Workspace — handoff
 
-**Written:** 2026-09-10 · **Branch:** `main` · **Last commit:** `6b41e2f15e`
-**Working tree:** clean · **Disk:** ~17 GB free
+**Written:** 2026-09-10 · **Branch:** `main` · **Last commit:** `3e95a7e7bd`
+**Working tree:** clean · **Disk:** check with `df -h /`
 
 Read this first, then `labos/progress-ledger.md`, which is the detailed
 per-step record of every change, command, result, decision and defect.
+
+**Supersedes the earlier handoff:** the Codex agent gateway is now built and
+verified against the real CLI (§9). Phase 3 is partly done.
+
+---
+
+## ⚠️ Start here: the single next action
+
+Phase 3 needs the **agent actions UI** wired to the gateway that now exists and
+is proven. Start by reading these two files, in this order:
+
+1. `packages/frontend/apps/electron/src/main/labos/agent-gateway.ts` — the
+   gateway. Note the header comment: it documents the verified CLI contract and
+   the two real bugs found by testing against the actual binary.
+2. `labos/scripts/agent-real-read.mjs` — the real-CLI verification. Run it to
+   confirm the environment still works before building on it:
+   `node labos/scripts/agent-real-read.mjs`
+
+Then build IPC handlers for it (mirror `memcp-handlers.ts`) and a UI surface on
+`/labos/repo` for: ask about a document, summarise, propose edits, QA review.
+The gateway returns a *proposal* string; there is no apply path yet, and the
+safe design is that there never is one without an explicit diff review.
 
 ---
 
@@ -77,6 +99,8 @@ shortlist. **13/13 checks passed against a real MeMCP service.**
 The full suite was run five times consecutively with zero failures. One earlier
 intermittent failure — an FSEvents attach race in the watcher test — was found,
 diagnosed and fixed rather than left as a known flake (see §6).
+
+**Then:** 242 tests, after adding the Codex agent gateway (§9).
 
 ### The five evidence dimensions
 
@@ -225,3 +249,48 @@ no enterprise feature is enabled or licence check bypassed.
 
 **Nothing was published outside the authorised public code-only fork. No upstream
 PR was opened. No paid service was used.**
+
+---
+
+## 9. Codex agent gateway (Phase 3, partly done)
+
+**Built and verified against the real CLI.** 24 stub-driven tests, plus 7/7
+checks against the actual `codex` binary in a throwaway fixture.
+
+**What exists:** `packages/frontend/apps/electron/src/main/labos/agent-gateway.ts`.
+Spawns `codex exec -s read-only --json -C <dir> --skip-git-repo-check "<prompt>"`,
+parses the JSONL event stream, and reports a job as queued / running / completed
+/ failed / cancelled / timed-out. Bounded by a timeout, an output ceiling and
+cancellation.
+
+**What does NOT exist yet:** IPC handlers, and any UI. There is also **no apply
+path** — the gateway returns a proposal string, and it should stay that way until
+there is a diff review, per the briefing's "proposals are reviewed, not applied".
+
+**Two real bugs, found only by running the actual CLI:**
+
+1. **`--skip-git-repo-check` was missing.** Codex refuses to run in a directory
+   it does not consider trusted — and it refuses by *waiting on stdin* rather
+   than exiting. So a real job looked like a 180-second hang when it was actually
+   blocked on input.
+2. **`stdin` was inherited**, compounding that: any CLI that decides to read
+   stdin sits there until the timeout. It is now explicitly closed.
+
+Both would have shipped as *"the agent button does nothing for three minutes"* —
+the kind of bug that reads as "slow" and never gets diagnosed.
+
+**Why this matters for the next session:** the flag list was correct, the stub
+tests all passed, and the feature was still broken. Only running the real binary
+found it. **Do the same for anything else that wraps an external tool.**
+
+**The safety property, proven not assumed:** the real-CLI check asks Codex to
+overwrite a file. The job *completes* — and the file is **byte-identical** with a
+clean `git status`. Read-only holds in practice. A test also fails if any
+dangerous flag (`--dangerously-bypass-approvals-and-sandbox`, `workspace-write`,
+`danger-full-access`, `--yolo`) can ever appear in the arguments.
+
+**Environment note:** Codex emits noisy stderr in this environment (deprecated
+`codex_hooks` feature, skill-loading errors, a dead MCP endpoint on port 17493,
+a models-cache warning). None of it affects the job; the gateway reads stdout
+only. Filter with `grep -vE "^2026-|rmcp::|codex_models|codex_core"` when reading
+its output.
