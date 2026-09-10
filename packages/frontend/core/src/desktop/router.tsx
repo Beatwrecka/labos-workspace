@@ -113,6 +113,14 @@ export const topLevelRoutes = [
         lazy: () => import('./pages/theme-editor'),
       },
       {
+        // LabOS repository documents. Top-level rather than under /workspace
+        // because a repository file is not part of any AFFiNE workspace: it
+        // belongs to its own checkout, and mixing the two would imply a
+        // relationship that does not exist.
+        path: '/labos/repo',
+        lazy: () => import('./pages/labos-repo'),
+      },
+      {
         path: '/clipper/import',
         lazy: () => import('./pages/import-clipper'),
       },

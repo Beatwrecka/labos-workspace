@@ -287,6 +287,73 @@ service documents this rather than claiming a guarantee it cannot keep.
 
 ---
 
+## 2026-09-10 — Phase 1, steps C–E: IPC, rendering safety, document view
+
+**Status:** complete
+
+**Changed paths**
+
+- `packages/frontend/apps/electron/src/shared/labos-repo.ts` (contract)
+- `packages/frontend/apps/electron/src/main/labos/handlers.ts`, `events.ts`,
+  `root-store.ts`
+- `packages/frontend/apps/electron/src/main/{handlers,events,index}.ts`
+- `packages/frontend/core/src/modules/labos-repo/`: `markdown.ts`,
+  `editor-state.ts`, `styles.css.ts`, `rendered-document.tsx`,
+  `document-view.tsx`
+- `labos/scripts/`: `root-store.test.mjs`, `markdown-security.test.mjs`,
+  `editor-state.test.mjs`
+
+**Commands and results**
+
+- `node --test labos/scripts/*.test.mjs` → **120/120 pass**
+- `yarn typecheck` → clean
+- `oxlint` on the new modules → 0 errors
+
+**What it does**
+
+The contract is dependency-free because it is imported by main, preload and
+renderer alike. The renderer never receives an absolute path: roots are opaque
+ids and documents are repository-relative paths.
+
+Markdown renders into a structured block list, never an HTML string, so "no code
+execution" is structural. Rendering safety is tested from the attacker's side:
+script tags, `img onerror`, `javascript:`/`data:`/`file:` links, remote tracking
+pixels, iframe/object/embed/form/base and MDX are each asserted to become inert
+data with the reason recorded.
+
+The view exposes the six agreed states and blocks Save exactly when saving would
+be unsafe (conflict unresolved, or the on-disk hash not yet confirmed).
+
+**Defects found and fixed**
+
+1. **Inline HTML mid-sentence was not escaped.** Raw-HTML handling ran only when
+   a line *started* with a tag, so `<img onerror>` hidden inside ordinary prose
+   passed through untouched — the likelier attack, since it does not look like
+   markup. Inline tags are now neutralised anywhere in a paragraph.
+2. **The table block shape was ambiguous**, which let a duplicated `index += 2`
+   slip through: the parser read the header from the delimiter row and silently
+   dropped a body row, producing a table that looked plausible but was wrong.
+   The shape is now unambiguous and a test asserts header-from-first-row plus
+   every body row in order.
+3. **`pickAndRegisterRoot` never passed its `absolutePath`**, so a folder chosen
+   in the picker would have failed to register. Caught by the typechecker.
+4. **Wrong theme token** (`fontFamilyCode` for `fontCodeFamily`).
+5. **Three floating promises** in the view, now handled explicitly rather than
+   left to surface as unhandled rejections.
+
+**Honest limits**
+
+- The renderer is not yet wired to a route, so it is not yet reachable by
+  clicking in the app. The services, contract and components are complete and
+  tested; the remaining work is route registration and a sidebar entry.
+- Markdown coverage is deliberately a small hand-written subset, not CommonMark.
+  Anything unrecognised is preserved as text rather than dropped, so no content
+  is lost, but some constructs will look plain.
+
+**Next step:** wire the view to a route so it is reachable in the running app.
+
+---
+
 ## Environment hazard: packaging leaves a nested-node_modules typecheck
 
 **Found:** 2026-09-10, while re-verifying the Phase 0 isolation commit.
