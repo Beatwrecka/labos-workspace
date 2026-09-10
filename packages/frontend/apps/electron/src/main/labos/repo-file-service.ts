@@ -142,6 +142,10 @@ interface ResolvedTarget {
 }
 
 export class LabosRepoFileService {
+  /** Exposed so the UI can state its limits rather than hide them. */
+  static readonly DEFAULT_MAX_DOCUMENT_BYTES = DEFAULT_MAX_DOCUMENT_BYTES;
+  static readonly DEFAULT_MAX_INDEXED_DOCUMENTS = DEFAULT_MAX_INDEXED_DOCUMENTS;
+
   readonly #roots = new Map<string, LabosTrustedRoot>();
   /** Bumped on every mutation so callers can cheaply detect change. */
   #rootsRevision = 0;

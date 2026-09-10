@@ -8,6 +8,7 @@ import { createApplicationMenu } from './application-menu/create';
 import {
   appDataFolderName,
   isDev,
+  isLabosBuild,
   overrideSession,
   sessionDataFolderName,
 } from './config';
@@ -15,6 +16,7 @@ import { persistentConfig } from './config-storage/persist';
 import { setupDeepLink } from './deep-link';
 import { registerEvents } from './events';
 import { registerHandlers } from './handlers';
+import { closeLabosRepoWatcher, restoreLabosRoots } from './labos/handlers';
 import { logger } from './logger';
 import { registerProtocol } from './protocol';
 import { setupRecordingFeature } from './recording/feature';
@@ -136,12 +138,32 @@ app
   .then(registerProtocol)
   .then(registerHandlers)
   .then(registerEvents)
+  // Restore trusted roots before the first window so a document opened from a
+  // previous session resolves immediately rather than appearing missing.
+  .then(async () => {
+    if (!isLabosBuild) return;
+    try {
+      await restoreLabosRoots();
+    } catch (error) {
+      console.error('[labos] failed to restore trusted roots:', error);
+    }
+  })
   .then(launch)
   .then(createApplicationMenu)
   .then(registerUpdater)
   .then(setupRecordingFeature)
   .then(setupTrayState)
   .catch(e => console.error('Failed create window:', e));
+
+// The watcher holds OS file handles; release them explicitly on the way out
+// rather than relying on process teardown.
+app.on('will-quit', () => {
+  try {
+    closeLabosRepoWatcher();
+  } catch {
+    // Shutting down: a failure here must not block quit.
+  }
+});
 
 if (process.env.SENTRY_RELEASE) {
   // https://docs.sentry.io/platforms/javascript/guides/electron/

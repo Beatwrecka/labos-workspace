@@ -8,6 +8,7 @@ import { clipboardHandlers } from './clipboard';
 import { configStorageHandlers } from './config-storage';
 import { findInPageHandlers } from './find-in-page';
 import { importHandlers } from './import';
+import { labosRepoHandlers } from './labos/handlers';
 import { getLogFilePath, logger, revealLogFile } from './logger';
 import { recordingHandlers } from './recording';
 import { checkSource } from './security-restrictions';
@@ -48,6 +49,7 @@ export const allHandlers = {
   i18n: i18nHandlers,
   byokStorage: byokStorageHandlers,
   auth: authHandlers,
+  labosRepo: labosRepoHandlers,
 };
 
 export const registerHandlers = () => {
