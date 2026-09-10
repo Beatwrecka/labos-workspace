@@ -12,6 +12,7 @@
 
 import { Button } from '@affine/component';
 import { DesktopApiService } from '@affine/core/modules/desktop-api';
+import { LabosAgentPanel } from '@affine/core/modules/labos-repo/agent-panel';
 import {
   LabosRepoDocumentView,
   LabosRepoFileList,
@@ -50,6 +51,42 @@ interface LabosRepoHandler {
     content: string;
     expectedHash: string;
   }) => Promise<LabosWriteResult>;
+  /** Absolute path of a registered root, for scoping an agent's working dir. */
+  rootCwd: (
+    rootId: string
+  ) => Promise<{ cwd: string } | LabosOperationError>;
+}
+
+interface LabosAgentHandler {
+  availability: () => Promise<{
+    available: boolean;
+    reason: string | null;
+    binaryPath: string | null;
+  }>;
+  run: (input: {
+    action: string;
+    cwd: string;
+    prompt: string;
+  }) => Promise<
+    | {
+        ok: true;
+        job: {
+          id: string;
+          state:
+            | 'queued'
+            | 'running'
+            | 'completed'
+            | 'failed'
+            | 'cancelled'
+            | 'timed-out';
+          output: string | null;
+          error: string | null;
+          usage: { inputTokens: number; outputTokens: number } | null;
+        };
+      }
+    | { ok: false; reason: string }
+  >;
+  cancel: (jobId: string) => Promise<{ cancelled: boolean }>;
 }
 
 function isOperationError(
@@ -62,6 +99,42 @@ export const Component = () => {
   const desktopApi = useServiceOptional(DesktopApiService);
   const labos = (desktopApi?.handler as { labosRepo?: LabosRepoHandler } | undefined)
     ?.labosRepo;
+  const agent = (
+    desktopApi?.handler as { labosAgent?: LabosAgentHandler } | undefined
+  )?.labosAgent;
+
+  // Agent availability is checked once, so the panel can state plainly when
+  // Codex is missing rather than failing on the first click.
+  const [agentAvailability, setAgentAvailability] = useState<{
+    available: boolean;
+    reason: string | null;
+  }>({ available: false, reason: null });
+  const [agentCwd, setAgentCwd] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!agent) {
+      setAgentAvailability({
+        available: false,
+        reason:
+          'Agent actions need the desktop app, which is where Codex runs.',
+      });
+      return;
+    }
+    agent
+      .availability()
+      .then(result =>
+        setAgentAvailability({
+          available: result.available,
+          reason: result.reason,
+        })
+      )
+      .catch(() =>
+        setAgentAvailability({
+          available: false,
+          reason: 'Codex availability could not be checked.',
+        })
+      );
+  }, [agent]);
 
   const [roots, setRoots] = useState<LabosRootSummary[]>([]);
   const [activeRootId, setActiveRootId] = useState<string | null>(null);
@@ -135,8 +208,30 @@ export const Component = () => {
 
     return (
       <LabosRepoDocumentView
+        rootId={rootId}
         rootLabel={rootLabel}
         relativePath={path}
+        renderAgentPanel={
+          agent && agentCwd
+            ? ({ relativePath, content }) => (
+                <LabosAgentPanel
+                  availability={agentAvailability}
+                  relativePath={relativePath}
+                  content={content}
+                  cwd={agentCwd}
+                  projectName={rootLabel}
+                  runAgent={input =>
+                    agent.run({
+                      action: input.action,
+                      cwd: input.cwd,
+                      prompt: input.prompt,
+                    })
+                  }
+                  cancelAgent={jobId => agent.cancel(jobId)}
+                />
+              )
+            : undefined
+        }
         readDocument={async () => {
           const result = await labos.readDocument(rootId, path);
           if (isOperationError(result)) {
@@ -215,7 +310,20 @@ export const Component = () => {
               <LabosRepoFileList
                 documents={documents.documents}
                 truncated={documents.truncated}
-                onOpen={setActivePath}
+                onOpen={nextPath => {
+                  // Resolve the root's absolute path once, when a document is
+                  // opened, so the agent's working directory is scoped to the
+                  // folder the reader actually registered.
+                  if (labos && activeRootId) {
+                    labos
+                      .rootCwd(activeRootId)
+                      .then(result =>
+                        setAgentCwd('cwd' in result ? result.cwd : null)
+                      )
+                      .catch(() => setAgentCwd(null));
+                  }
+                  setActivePath(nextPath);
+                }}
               />
             ) : (
               <span>Reading this folder…</span>

@@ -12,7 +12,7 @@
  */
 
 import { Button } from '@affine/component';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type {
   LabosDocumentStatus,
@@ -34,6 +34,7 @@ import { renderMarkdown } from './markdown';
 import { RenderedDocument } from './rendered-document';
 import {
   actions,
+  agentSection,
   body,
   breadcrumb,
   breadcrumbPath,
@@ -65,6 +66,8 @@ import {
 } from './styles.css';
 
 export interface LabosRepoDocumentViewProps {
+  /** Opaque trusted-root id, needed to scope agent actions to this document. */
+  rootId: string;
   rootLabel: string;
   relativePath: string;
   /** Read the document from the main process. */
@@ -81,6 +84,18 @@ export interface LabosRepoDocumentViewProps {
   onReload: () => void;
   /** Open the file in the user's editor, if available. */
   onOpenExternally?: () => void;
+  /**
+   * Agent actions for this document, if available.
+   *
+   * Passed in rather than imported so the document view stays independent of
+   * the agent layer: a build without Codex, or a test, can render this view
+   * with no agent at all.
+   */
+  renderAgentPanel?: (context: {
+    relativePath: string;
+    content: string;
+    rootId: string;
+  }) => ReactNode;
 }
 
 /** Accessible name for the status, so colour is never the only signal. */
@@ -108,12 +123,14 @@ function statusDescription(
 }
 
 export function LabosRepoDocumentView({
+  rootId,
   rootLabel,
   relativePath,
   readDocument,
   writeDocument,
   onReload,
   onOpenExternally,
+  renderAgentPanel,
 }: LabosRepoDocumentViewProps) {
   const [state, setState] = useState<LabosDocEditorState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -325,6 +342,20 @@ export function LabosRepoDocumentView({
             ) : null}
 
             <RenderedDocument document={rendered} />
+
+            {/* Agent actions, scoped to the draft the reader can actually see.
+                Placed after the document so the actions relate to what is on
+                screen, and passed the draft rather than the file on disk so the
+                agent never reviews content that differs from the view. */}
+            {renderAgentPanel ? (
+              <section className={agentSection} aria-label="Agent actions">
+                {renderAgentPanel({
+                  relativePath,
+                  content: state.draft,
+                  rootId,
+                })}
+              </section>
+            ) : null}
           </div>
         ) : (
           <textarea

@@ -258,6 +258,23 @@ export const labosRepoHandlers = {
   /** How many changes are queued for a root, so the UI can badge a folder. */
   pendingChangeCount: async (): Promise<number> => pendingChanges.size,
 
+  /**
+   * The absolute path of a trusted root, for scoping an agent's working
+   * directory. Returned only for a root the user has explicitly registered, and
+   * only through this narrow call — the general renderer contract still never
+   * exposes absolute paths.
+   */
+  rootCwd: async (
+    _e: Electron.IpcMainInvokeEvent,
+    rootId: string
+  ): Promise<{ cwd: string } | LabosOperationError> => {
+    const root = service.getRoot(rootId);
+    if (!root) {
+      return { message: 'That repository folder is not registered.', code: 'unknown-root' };
+    }
+    return { cwd: root.absolutePath };
+  },
+
   clearPendingChanges: async (): Promise<void> => {
     pendingChanges.clear();
   },

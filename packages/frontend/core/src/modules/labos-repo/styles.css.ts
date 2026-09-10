@@ -342,8 +342,14 @@ export const unsupportedBadge = style({
   flexShrink: 0,
 });
 
-export const statusBar = style({
-  display: 'flex',
+/** Agent actions sit below the document, separated from the reading flow. */
+export const agentSection = style({
+  marginTop: '40px',
+  paddingTop: '24px',
+  borderTop: `1px solid ${cssVar('borderColor')}`,
+});
+
+export const statusBar = style({  display: 'flex',
   alignItems: 'center',
   gap: '10px',
   padding: '8px 16px',
