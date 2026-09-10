@@ -540,6 +540,81 @@ code.
 
 ---
 
+## 2026-09-10 — Phase 2, step C: real MeMCP integration read
+
+**Status:** complete — the integration gate is now met
+
+**Changed paths**
+
+- `labos/scripts/memcp-real-read.mjs` (new)
+
+**Commands and results**
+
+- `node labos/scripts/memcp-real-read.mjs http://127.0.0.1:3212` →
+  **13/13 checks passed against the real service**
+
+**How the read was obtained without disturbing the live service**
+
+A MeMCP daemon was already running on port **3211**, but it was a **stale process
+started before 6 September**: it served `/api/v1/health`, `/memories` and
+`/tasks`, but returned **404 for `/projects` and `/snapshot`**, the endpoints
+Phase 2 needs. The source in `projects/MeMCP` does contain them (added in
+`e1b9205`, 6 Sep) and typechecks cleanly, so the adapter contract was right and
+the running process was simply too old.
+
+A graceful `SIGTERM` released its port but left the process in a stuck state: it
+vanished from the process table while `lsof` still listed it holding the
+database, so MeMCP's own one-daemon-per-database guard correctly refused to
+start. Rather than force a lock that MeMCP explicitly warns against, the read was
+taken against a **copy** of the database:
+
+1. copied `memory.sqlite` to a temp directory (integrity check: `ok`, 18 projects)
+2. ran MeMCP's **current** source against the copy on port 3212 with
+   `MEMCP_DATA_DIR` and `MEMCP_PORT`
+3. drove the **real adapter code** against it
+4. stopped the temp daemon and deleted the copy
+
+The live service, its database and its stuck process were never written to or
+forced. The real database still verifies `ok` with all 18 projects after the read.
+
+**What the real data confirms**
+
+- 18 projects; `absent fields stay absent` — **0 of 18** have a recorded status,
+  and every one stayed `null` rather than being defaulted to something plausible
+- `schema_version: 2` as the adapter expects
+- a real task carries `evidence_label: reported_status`, which is exactly the
+  distinction the sprint cards render
+- real section statuses mix `available`, `partial` and `unknown` — the snapshot
+  does not overstate what it can show
+- **real evidence gaps**: `functional_proof_not_recorded`,
+  `run_instructions_not_recorded`, `visual_evidence_not_recorded`,
+  `repository_availability_not_checked`
+- a real conditional request returns **304 with a genuinely empty body**, and the
+  adapter handles it as not-modified while keeping the connection healthy. This
+  is the specific trap the briefing flagged, now verified against the service
+  rather than only against fixtures.
+
+**Honest limits of this read**
+
+- It ran against a **copy** of the database, not the live daemon, because that
+  daemon is stale. The data is real; the process was not the production one.
+- **No project currently has preview screenshots**, so the gallery's recorded-cover
+  path could not be exercised against real data. Only the placeholder path is
+  real-data verified.
+- Whether MeMCP preview images load under the app's content security policy is
+  still unverified, and cannot be until a project has previews.
+
+**Still outstanding for the live service**
+
+The stale daemon on 3211 needs clearing before the *installed app* can talk to
+MeMCP: a restart of the Mac, or a force-quit in Activity Monitor. Until then
+`/labos/projects` will report "MeMCP not connected" against the live service,
+which is the honest state rather than a bug.
+
+**Next step:** the home screen.
+
+---
+
 ## Environment hazard: packaging leaves a nested-node_modules typecheck
 
 **Found:** 2026-09-10, while re-verifying the Phase 0 isolation commit.
