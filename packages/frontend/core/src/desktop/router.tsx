@@ -113,23 +113,24 @@ export const topLevelRoutes = [
         lazy: () => import('./pages/theme-editor'),
       },
       {
-        // LabOS repository documents. Top-level rather than under /workspace
-        // because a repository file is not part of any AFFiNE workspace: it
-        // belongs to its own checkout, and mixing the two would imply a
-        // relationship that does not exist.
-        path: '/labos/repo',
-        lazy: () => import('./pages/labos-repo'),
-      },
-      {
-        // LabOS home: continue-writing, priority projects, recent work and an
-        // actionable "Needs you".
-        path: '/labos/home',
-        lazy: () => import('./pages/labos-home'),
-      },
-      {
-        // LabOS project portfolio, backed by the local MeMCP service.
-        path: '/labos/projects',
-        lazy: () => import('./pages/labos-projects'),
+        // Share the native desktop frame, but keep repository files outside
+        // AFFiNE workspace storage. The existing public URLs are unchanged.
+        path: '/labos',
+        lazy: () => import('./pages/labos-layout'),
+        children: [
+          {
+            path: 'repo',
+            lazy: () => import('./pages/labos-repo'),
+          },
+          {
+            path: 'home',
+            lazy: () => import('./pages/labos-home'),
+          },
+          {
+            path: 'projects',
+            lazy: () => import('./pages/labos-projects'),
+          },
+        ],
       },
       {
         path: '/clipper/import',

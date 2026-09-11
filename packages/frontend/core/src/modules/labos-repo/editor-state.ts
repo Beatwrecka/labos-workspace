@@ -45,6 +45,8 @@ export interface LabosDocEditorState {
   lastFailure: string | null;
   /** True between "save requested" and the service's answer. */
   saving: boolean;
+  /** Exact draft submitted by beginSave, not text typed while awaiting its reply. */
+  pendingSaveContent: string | null;
   /**
    * True when the draft holds content whose on-disk hash is not yet confirmed.
    * A save must be blocked until a reload supplies the real hash, otherwise it
@@ -73,6 +75,7 @@ export function createEditorState(
     missingReason: null,
     lastFailure: null,
     saving: false,
+    pendingSaveContent: null,
     needsReload: false,
   };
 }
@@ -94,7 +97,9 @@ export function applyEdit(
     return {
       ...base,
       status:
-        state.externalContent === null ? 'saved-to-repo' : state.status,
+        state.externalContent === null && !state.saving
+          ? 'saved-to-repo'
+          : state.status,
     };
   }
   if (state.status === 'conflict-review-needed') {
@@ -105,7 +110,13 @@ export function applyEdit(
 
 /** Mark that a save has been requested and is awaiting the service's answer. */
 export function beginSave(state: LabosDocEditorState): LabosDocEditorState {
-  return { ...state, saving: true, lastFailure: null };
+  if (!canSave(state)) return state;
+  return {
+    ...state,
+    saving: true,
+    pendingSaveContent: state.draft,
+    lastFailure: null,
+  };
 }
 
 /**
@@ -118,20 +129,36 @@ export function applySaveResult(
   state: LabosDocEditorState,
   result: LabosWriteResult
 ): LabosDocEditorState {
+  // A late/duplicate reply without a pending save must not invent a baseline.
+  if (!state.saving || state.pendingSaveContent === null) return state;
+
   if (result.ok) {
+    const savedContent = state.pendingSaveContent;
+    // A newer external event or access restriction still needs attention even
+    // when this particular write succeeded. Never clear it with a late reply.
+    const preserveStatus =
+      state.status === 'conflict-review-needed' ||
+      state.status === 'file-moved-or-missing' ||
+      state.status === 'read-only' ||
+      state.needsReload;
     return {
       ...state,
       saving: false,
-      status: 'saved-to-repo',
+      pendingSaveContent: null,
+      status: preserveStatus
+        ? state.status
+        : state.draft === savedContent
+          ? 'saved-to-repo'
+          : 'unsaved-draft',
       baseline: {
         hash: result.hash,
-        content: state.draft,
+        content: savedContent,
         size: result.size,
         mtimeMs: result.mtimeMs,
       },
-      externalContent: null,
-      lastFailure: null,
-      missingReason: null,
+      externalContent: preserveStatus ? state.externalContent : null,
+      lastFailure: preserveStatus ? state.lastFailure : null,
+      missingReason: preserveStatus ? state.missingReason : null,
     };
   }
 
@@ -144,6 +171,7 @@ export function applySaveResult(
     return {
       ...state,
       saving: false,
+      pendingSaveContent: null,
       status: 'conflict-review-needed',
       lastFailure: failure,
     };
@@ -153,6 +181,7 @@ export function applySaveResult(
     return {
       ...state,
       saving: false,
+      pendingSaveContent: null,
       status: 'file-moved-or-missing',
       missingReason: failure,
       lastFailure: failure,
@@ -163,6 +192,7 @@ export function applySaveResult(
     return {
       ...state,
       saving: false,
+      pendingSaveContent: null,
       status: 'read-only',
       lastFailure: failure,
     };
@@ -171,6 +201,7 @@ export function applySaveResult(
   return {
     ...state,
     saving: false,
+    pendingSaveContent: null,
     // Everything else leaves the draft unsaved. Claiming otherwise is the one
     // thing this must never do.
     status: isDirty(state) ? 'unsaved-draft' : state.status,
