@@ -61,7 +61,17 @@ export const BUILD_IN_SERVERS: (ServerMetadata & { config: ServerConfig })[] =
             },
           },
         ]
-      : BUILD_CONFIG.appBuildType === 'stable'
+      : BUILD_CONFIG.appBuildType === 'stable' ||
+            // LabOS Workspace is a local-first build of this fork; it shares
+            // upstream's stable server *definition* rather than inventing one.
+            // Not cosmetic: this entry is what carries
+            // `ServerFeature.LocalWorkspace`, and with no entry at all the list
+            // resolves to [] — DefaultServerService then throws
+            // "No server found" while the app is starting, and the window shows
+            // an error page instead of a workspace. Phase 0 added the `labos`
+            // release type and updated the telemetry channel below, but missed
+            // this list.
+            BUILD_CONFIG.appBuildType === 'labos'
         ? [
             {
               id: 'affine-cloud',

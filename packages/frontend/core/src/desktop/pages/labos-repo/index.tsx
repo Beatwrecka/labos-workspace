@@ -17,6 +17,7 @@ import {
   LabosRepoDocumentView,
   LabosRepoFileList,
 } from '@affine/core/modules/labos-repo/document-view';
+import { useLabosDocumentTitle } from '@affine/core/modules/labos-repo/labos-document-title';
 import {
   emptyState,
   fileList,
@@ -141,6 +142,10 @@ export const Component = () => {
   const [documents, setDocuments] = useState<LabosIndexResult | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // The window title is this page's job: /labos/repo sits outside the
+  // /workspace layout, so the upstream title component never runs here.
+  useLabosDocumentTitle('Repository documents');
 
   const refreshRoots = useCallback(async () => {
     if (!labos) return;

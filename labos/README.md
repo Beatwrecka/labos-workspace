@@ -4,12 +4,17 @@ This directory holds the sanitised, code-only LabOS additions to this fork of
 [toeverything/AFFiNE](https://github.com/toeverything/AFFiNE). It is written for
 someone reading the source, so it describes the implementation and its limits.
 
+**Read `HANDOFF.md` first.** It is the single current status document: what is
+built, what is broken, and the next tasks in order. `progress-ledger.md` is the
+detailed per-step record behind it.
+
 **This is a public repository.** Do not put private briefing material, real user
 content, screenshots, credentials or MeMCP internals here. `labos/scripts/leak-scan.mjs`
 audits staged changes for exactly those classes before a push.
 
 | File | Purpose |
 |---|---|
+| `HANDOFF.md` | **Start here.** Current status, open defects, next tasks in order. |
 | `pins.json` | Machine-readable upstream release/commit pin, toolchain pins and app-isolation identity. |
 | `build-inventory.md` | Why this release was chosen, verified toolchain conformance, build order, licence carve-outs. |
 | `progress-ledger.md` | Per-step record of changes, commands, real results, decisions and defects found. |
@@ -24,21 +29,35 @@ audits staged changes for exactly those classes before a push.
 ## Verifying the baseline
 
 ```sh
-. labos/scripts/labos-env.sh   # pin the toolchain
-labos_doctor                   # report any drift, never mutates the host
-node --test labos/scripts/pins.test.mjs labos/scripts/leak-scan.test.mjs \
-           labos/scripts/isolation.test.mjs labos/scripts/packaged-app.test.mjs
-node labos/scripts/leak-scan.mjs          # audit staged changes
+. labos/scripts/labos-env.sh             # pin the toolchain
+labos_doctor                             # report any drift, never mutates the host
+node --test labos/scripts/*.test.mjs     # the whole suite
+yarn typecheck                           # only meaningful after the cleanup below
+node labos/scripts/leak-scan.mjs         # audit staged changes
 bash labos/scripts/launch-labos.sh --doctor
 ```
 
-## Building and launching
+## Building, packaging and launching
 
 ```sh
-bash labos/scripts/package-labos.sh       # build + package (several minutes)
-bash labos/scripts/launch-labos.sh        # launch
+bash labos/scripts/package-labos.sh      # build + package (several minutes)
 bash labos/scripts/launch-labos.sh --doctor
+bash labos/scripts/launch-labos.sh
 ```
+
+**The packaged app is unsigned, and macOS kills it in that state.** There is no
+process, no crash dialog and not one line in the log, so it looks as though
+nothing happened. `codesign --verify --deep --strict` reports `code has no
+resources but signature indicates they must be present`. Ad-hoc signing after
+packaging makes it launchable:
+
+```sh
+APP="packages/frontend/apps/electron/out/labos/LabOS Workspace-darwin-arm64/LabOS Workspace.app"
+codesign --force --deep --sign - "$APP" && open -a "$APP"
+```
+
+`launch-labos.sh` reports this in its doctor output and then launches anyway —
+the doctor line is a warning, not a block. See `HANDOFF.md` for the open task.
 
 `package-labos.sh` runs in three phases because the two halves of the build need
 **different dependency layouts**, which is easy to get wrong and fails in
@@ -51,17 +70,30 @@ confusing ways:
    keeps its own `node_modules` where forge can find the runtime dependencies
    that esbuild leaves external (`electron-updater`, `yjs`, …).
 
-**After packaging**, restore the default layout before trusting a typecheck:
+**After packaging, restore the default layout before trusting a typecheck.** Three
+parts, all needed: restore the project config (phase 3 leaves
+`nmHoistingLimits: workspaces` in it, and an install without this *recreates* every
+nested `node_modules` — measured at 834 before the cleanup and 834 after it, versus
+2 with the config restored); delete the nested `node_modules`; and delete the
+`tsconfig.tsbuildinfo` files, which record those nested paths as inputs and
+otherwise leave tsc rebuilding against inputs that no longer exist. Packaging also
+leaves the tracked `.yarnrc.yml` modified — restore it with
+`git restore --source=HEAD --staged --worktree .yarnrc.yml`, **not**
+`git checkout -- .yarnrc.yml`, which restores from the index and silently does
+nothing if the change was already staged.
 
 ```sh
-find . -mindepth 3 -maxdepth 6 -type d -name node_modules \
+git restore --source=HEAD --staged --worktree .yarnrc.yml
+find . -mindepth 3 -maxdepth 7 -type d -name node_modules \
   -not -path "./node_modules/*" -exec rm -rf {} +
+find . -name tsconfig.tsbuildinfo -not -path "./node_modules/*" \
+  -not -path "*/node_modules/*" -delete
 rm -rf node_modules && yarn install --immutable
 ```
 
-The packaging install leaves ~600 nested `node_modules` directories behind. With
-those duplicates present, `yarn typecheck` reports ~1750 errors across ~1090
-files in `blocksuite/` — none of them real. See `progress-ledger.md`.
+With those nested duplicates on disk, `yarn typecheck` reports ~1750 errors
+across ~1090 files in `blocksuite/` — none of them real. See
+`progress-ledger.md`.
 
 ## Why the leak scanner only audits some paths
 

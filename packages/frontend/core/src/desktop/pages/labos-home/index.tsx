@@ -20,6 +20,7 @@ import {
   type LabosHomeRepoDoc,
 } from '@affine/core/modules/labos-repo/home-model';
 import { LabosHomeView } from '@affine/core/modules/labos-repo/home-view';
+import { useLabosDocumentTitle } from '@affine/core/modules/labos-repo/labos-document-title';
 import { useServiceOptional } from '@toeverything/infra';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -85,6 +86,10 @@ export const Component = () => {
     ?.labosRepo;
   const memcp = (desktopApi?.handler as { labosMemcp?: MemcpHandler } | undefined)
     ?.labosMemcp;
+
+  // The window title is this page's job: /labos/home sits outside the /workspace
+  // layout, so the upstream title component never runs here.
+  useLabosDocumentTitle();
 
   const [repoDocuments, setRepoDocuments] = useState<LabosHomeRepoDoc[]>([]);
   const [unavailableRoots, setUnavailableRoots] = useState<

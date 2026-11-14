@@ -25,6 +25,7 @@ import {
   parsePreferences,
   toggleShortlist,
 } from '@affine/core/modules/labos-repo/project-preferences';
+import { useLabosDocumentTitle } from '@affine/core/modules/labos-repo/labos-document-title';
 import {
   applyShortlistOrder,
   buildProjectCover,
@@ -167,6 +168,13 @@ export const Component = () => {
   } | null>(null);
   const [preferences, setPreferences] =
     useState<LabosProjectPreferences>(EMPTY_PREFERENCES);
+
+  // The window title is this page's job: /labos/projects sits outside the
+  // /workspace layout, so the upstream title component never runs here. A
+  // detail view names the open project, so the window says which one.
+  useLabosDocumentTitle(
+    activeSlug && snapshot ? snapshot.project.name : 'Projects'
+  );
 
   // --- preferences, loaded once from shared storage -------------------------
 

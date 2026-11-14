@@ -41,7 +41,15 @@ export const topLevelRoutes = [
     errorElement: <AffineErrorComponent />,
     children: [
       {
+        // LabOS Workspace is its own product with its own home screen, so its
+        // build does not open on upstream's workspace-less root — that root has
+        // nothing to show on a fresh profile, and on this fork it rendered as a
+        // blank window. Upstream release types keep upstream's behaviour.
         path: '/',
+        loader: () =>
+          BUILD_CONFIG.appBuildType === 'labos'
+            ? redirect('/labos/home')
+            : null,
         lazy: () => import('./pages/index'),
       },
       {

@@ -70,6 +70,30 @@ export function createApplicationMenu() {
             applicationMenuSubjects.newPageAction$.next('default');
           },
         },
+        {
+          // LabOS Workspace's screens are top-level routes rather than part of
+          // an AFFiNE workspace, so nothing in upstream's interface leads to
+          // them. Without an entry point they are unreachable in the packaged
+          // app: there is no address bar to type a route into, and an installed
+          // app cannot be navigated by URL. Hence a menu item rather than a
+          // documented URL.
+          //
+          // An empty-path tab on purpose, NOT an explicit route. `loadTab`
+          // builds its URL as `new URL(basename + pathname, 'assets://./')`, so
+          // basename '/' combined with a pathname that also starts with '/'
+          // yields '//labos/home' — which `new URL` reads as protocol-relative
+          // and resolves to host `labos`, i.e. `assets://labos/home`. That fails
+          // with ERR_UNEXPECTED and an empty window, and because the tab is
+          // persisted the app then opens blank on every subsequent launch. The
+          // renderer already redirects '/' to '/labos/home' for the labos build,
+          // so an empty-path tab lands there without this process constructing a
+          // URL at all.
+          label: 'LabOS Home',
+          click: async () => {
+            await initAndShowMainWindow();
+            addTab({ basename: '/' }).catch(err => logger.error(err));
+          },
+        },
       ],
     },
     // { role: 'editMenu' }
