@@ -57,7 +57,23 @@ tsconfig.tsbuildinfo
 .DS_Store
 Thumbs.db
 
-# env
+# env and credential safety (does not affect already tracked files)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.jks
+credentials*
+secrets*
+*.keystore
+id_rsa
+id_dsa
+.htpasswd
+.npmrc
+.pypirc
+*.log
 *.env.local
 *.local.env
 .history
